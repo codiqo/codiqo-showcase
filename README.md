@@ -188,7 +188,7 @@ Fixed as policy, and deliberately not configurable per project:
 | `stop-on-first-failure` | `false` | The pending list is walked oldest-first, so one wedged commit must not block every newer one. |
 | `agent-instructions` | `false` | The analysed project never opted in. Its `AGENTS.md` must not steer what we publish about it. |
 | `log-commit-authors` | `false` | Logs on a public repository are public. |
-| `exclude-author-emails` | `*bot*` | A showcase measures human work. The substring form is deliberate: guava's exporter commits from a `…-bot@google.com` address, which a bracketed `*[bot]@*` would miss. |
+| `exclude-author-emails` | `*[bot]@*` | A showcase measures human work. Narrower than the engine's `*bot*` on purpose: it catches GitHub app identities without catching a human whose address merely contains the word — guava's Google-internal changes are exported under such an address. |
 | `persist-credentials` | `false` | The analysed project's own build runs over that checkout. |
 
 ## What bounds a run

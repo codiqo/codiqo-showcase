@@ -173,11 +173,15 @@ jobs:
           # ---------------------------------------------------------------- showcase policy
           # Fixed here rather than exposed as inputs: a project may not weaken any of it.
           #
-          # Bots belong out of a showcase: it measures human work. Stated explicitly, and matching
-          # the engine default rather than narrowing it, so what a public page publishes cannot move
-          # with a change upstream. The substring form is deliberate — guava's own exporter commits
-          # from a ...-bot@google.com address, which the bracketed GitHub form would not catch.
-          exclude-author-emails: '*bot*'
+          # Bots belong out of a showcase: it measures human work. Stated explicitly rather than
+          # inherited, so what a public page publishes cannot move with a change upstream.
+          #
+          # The bracketed form, and NOT the engine's broader '*bot*': it catches GitHub's app
+          # identities (dependabot[bot]@...) while leaving addresses that merely contain the word.
+          # That distinction matters here — guava's Google-internal changes are exported under
+          # java-team-github-bot@google.com, and the work behind them is human. The filter runs at
+          # index time, so anything it rejects is never indexed and never scored.
+          exclude-author-emails: '*[bot]@*'
           # ON, unlike the action's default, and deliberately: an import that fails leaves every
           # caller count at zero, which is indistinguishable from "this code has no callers" once
           # stored. A red run is recoverable; a public page asserting a blast radius of zero is not.
