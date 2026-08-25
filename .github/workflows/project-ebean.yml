@@ -1,0 +1,64 @@
+# Ebean ORM — https://github.com/ebean-orm/ebean
+#
+# JDK 25, which is the floor rather than a preference. Ebean compiles to release 11 and upstream CI
+# tests on 21 alone, but codiqo-maven-plugin declares requiredJavaVersion 25, so Maven has to run on
+# at least that. Both 25 and 26 still accept --release 11 — checked with javac before wiring this up
+# — and 25 is the closest supported JDK to what upstream actually exercises. Ebean pins no toolchain
+# of its own, so one entry covers the build, the tests and the language server.
+#
+# Five modules start Docker containers through ebean-test: postgis on 9432, pgvector on 8432, and a
+# shared fixed-name redis that ebean-redis and ebean-redisson deliberately keep alive across a
+# parallel reactor. A hosted runner provides Docker, and the image pulls land on the first commit of
+# a run and are served from the runner's cache for the rest of the job.
+#
+# No engine options are needed. Ebean ships no jacoco, PMD, CPD or SpotBugs of its own and has no
+# failsafe phase, so nothing competes with codiqo's own instrumentation, and no source tree is
+# mirrored the way guava's android/ is.
+#
+# One trap worth knowing before adding maven-args here: ebean's `default` profile is activeByDefault
+# and is what contributes the `tests` module. Naming any other profile with -P deactivates it, the
+# reactor loses every test, and the build still goes green with coverage at zero.
+name: Ebean
+
+on:
+  schedule:
+    # Offset well away from guava's 03:17 so two long runs never queue against each other.
+    - cron: '43 4 * * *'
+  workflow_dispatch:
+    inputs:
+      max-commits-per-run:
+        description: 'Commits to analyse. Empty takes every pending commit; 1 is the cautious first-run value.'
+        required: false
+        type: string
+        default: ''
+      commit-window:
+        description: 'How far back to look (ISO-8601 period)'
+        required: false
+        type: string
+        default: 'P3M'
+      ignore-coverage:
+        description: 'Skip tests — use for the first run, to prove the wiring before spending build hours'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # On `schedule` the inputs context is empty, so every value below resolves to its unset form.
+  # commit-window is spelled out anyway: an empty window is not "no window" to the action, it is
+  # whatever the action's own default happens to be, and this page's history should not move when
+  # that default does.
+  analyze:
+    uses: ./.github/workflows/analyze-project.yml
+    with:
+      target-repo: ebean-orm/ebean
+      showcase-slug: ebean
+      jdks: |
+        25
+      commit-window: ${{ inputs.commit-window || 'P3M' }}
+      max-commits-per-run: ${{ inputs.max-commits-per-run }}
+      ignore-coverage: ${{ inputs.ignore-coverage || false }}
+    secrets:
+      CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_EBEAN }}

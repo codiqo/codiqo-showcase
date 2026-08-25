@@ -13,8 +13,9 @@ can be traced back to the run that produced it.
 | Project | Workflow | Showcase page |
 |---|---|---|
 | [google/guava](https://github.com/google/guava) | [`project-guava.yml`](.github/workflows/project-guava.yml) | [codiqo.io/showcase/guava](https://codiqo.io/showcase/guava) |
+| [ebean-orm/ebean](https://github.com/ebean-orm/ebean) | [`project-ebean.yml`](.github/workflows/project-ebean.yml) | [codiqo.io/showcase/ebean](https://codiqo.io/showcase/ebean) |
 
-**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
+**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
 
 ---
 
@@ -162,6 +163,26 @@ A worked example of what per-project tuning looks like, and why each line exists
 - **The schedule keeps up.** Guava landed 34 commits in the last 30 days, so once the initial `P3M`
   backlog drains, a daily run has roughly one commit to do.
 
+## Project notes: ebean
+
+The contrasting case: a project that needs almost nothing.
+
+- **JDK 25, the floor rather than a preference.** Ebean compiles to release 11 and upstream CI tests
+  on 21 alone, but the plugin's `requiredJavaVersion` is 25. Both 25 and 26 still accept
+  `--release 11`, so 25 is the closest supported JDK to what upstream exercises. No toolchain is
+  pinned, so one entry covers everything.
+- **Docker is part of the build.** Five modules start containers through `ebean-test` — postgis,
+  pgvector and a shared redis. A hosted runner provides it, and the image pulls are paid once per
+  run rather than once per commit.
+- **Nothing to exclude and nothing to tune.** No jacoco, PMD, CPD or SpotBugs of its own, no
+  failsafe phase, no mirrored source tree. Every default applies unchanged.
+- **Cheap by comparison.** The whole reactor builds and runs 2,669 tests in about three minutes
+  locally, against roughly twenty-four minutes per commit for guava.
+- **One trap.** Ebean's `default` profile is `activeByDefault` and is what contributes the `tests`
+  module. Passing any other profile with `-P` deactivates it, the reactor loses every test, and the
+  build still goes green with coverage at zero. Which is the argument for not adding `maven-args`
+  here.
+
 ## Reusable workflow reference
 
 `analyze-project.yml` exposes only what a project genuinely varies. Everything else is either showcase
@@ -231,6 +252,7 @@ secrets redacted before upload.
 .github/workflows/
 ├── analyze-project.yml    shared policy, workflow_call only, never triggered directly
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
+├── project-ebean.yml      another, needing nothing but a different JDK
 └── project-<slug>.yml     ... one file per project, added the same way
 ```
 
