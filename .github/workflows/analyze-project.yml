@@ -1,0 +1,207 @@
+# Analyses one open-source project and submits the results to a Codiqo showcase organization.
+#
+# Every project in this repository calls this workflow; the caller supplies only what differs.
+# It is never triggered directly — workflow_call means a caller must ask for it, so the API key
+# is never reachable from a fork or a pull request.
+#
+# Only what a project genuinely varies is an input here. Anything that is showcase policy is
+# fixed on the action step below, and anything already correct in codiqo-action is left to its
+# default rather than restated — a copied default is a second place to forget.
+name: Analyze project (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      target-repo:
+        description: 'Repository to analyse, as owner/name. Checked out with full history.'
+        required: true
+        type: string
+      target-ref:
+        description: 'Ref to analyse. Empty uses the default branch.'
+        required: false
+        type: string
+        default: ''
+      showcase-slug:
+        description: 'Codiqo organization slug, used to link the public page from the run summary.'
+        required: true
+        type: string
+      jdks:
+        description: >-
+          JDKs to install, one per line. setup-java writes a toolchain entry for every one of them
+          into ~/.m2/toolchains.xml, which is what a project pinning a toolchain needs in order to
+          build here; the LAST entry becomes JAVA_HOME and so runs Maven, the language server and
+          the tests. List every version the project's toolchains ask for, including the one Maven
+          itself should run on — and that last one must be 25 or newer, because codiqo-maven-plugin
+          declares requiredJavaVersion 25 and Maven refuses to execute a plugin it cannot satisfy.
+        required: false
+        type: string
+        default: |
+          26
+      commit-window:
+        description: >-
+          How far back to look for unanalysed commits. A rolling window, never full history. It bounds
+          what enters the commit index, not what a run analyses: the pending list is not filtered by it
+          again, so widening the window enqueues everything it newly covers and the runs work through
+          that backlog oldest-first over as many days as it takes.
+        required: false
+        type: string
+        default: 'P3M'
+      max-commits-per-run:
+        description: >-
+          Cap on commits analysed in one run, as codiqo.missingAnalysesLimit. Empty — the default —
+          means every commit still pending, which is what a daily schedule wants: the backend returns
+          them oldest-first, each is submitted on its own, and what a run does not reach stays pending
+          for the next one. The real bound is the job timeout below, not a count. Set a small number
+          only for a deliberately cheap run, such as proving the wiring on a first attempt.
+        required: false
+        type: string
+        default: ''
+      per-commit-timeout:
+        description: 'Wall-clock limit for one commit, build and analysis together.'
+        required: false
+        type: string
+        default: '1h'
+      maven-opts:
+        description: >-
+          MAVEN_OPTS for the analysis. A GitHub-hosted runner has 16 GB and the JVM takes 25% of RAM by
+          default — 4 GB — while the diagnostics stage alone was measured at 4-7 GB on a reactor the size
+          of guava. Left at the default the run dies or crawls, so size this explicitly. The forked
+          per-commit build inherits it, and the language server is a further process, so leave headroom.
+        required: false
+        type: string
+        default: '-Xmx6g'
+      maven-user-properties:
+        description: >-
+          Newline-separated key=value pairs passed as -Dkey=value to every Maven invocation, including the
+          analysis mojo itself. This is how project-specific engine options reach the run without the
+          workflow needing an input for each one — e.g. codiqo.excludePaths for a repository that mirrors
+          its own sources. Never put secrets here; they would appear on the command line.
+        required: false
+        type: string
+        default: ''
+      ignore-coverage:
+        description: 'Skip tests in the per-commit build. Faster, but produces no coverage data.'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CODIQO_API_KEY:
+        description: 'API key of the showcase organization the results belong to.'
+        required: true
+
+# Read-only: this workflow never writes to the repository, it only reads a third-party one.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    # This, not a commit count, is what bounds a run. Commits are analysed oldest-first and each is
+    # submitted on its own, so a run that stops early is progress rather than waste — the remainder
+    # is simply still pending next time. Six hours is the hosted-runner maximum, and stopping short
+    # of it means the run is cancelled by GitHub Actions, which still executes the always() steps
+    # that upload the logs and write the summary.
+    timeout-minutes: 340
+    # One run per project at a time. cancel-in-progress: false lets a running analysis finish
+    # rather than throwing away build hours to start again.
+    concurrency:
+      group: analyze-${{ inputs.showcase-slug }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out ${{ inputs.target-repo }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.target-repo }}
+          ref: ${{ inputs.target-ref }}
+          # Required: Codiqo skips any commit whose parent is missing locally.
+          fetch-depth: 0
+          # This tree's own build plugins and tests are about to run. Leaving the job token in
+          # its .git/config would hand a credential to third-party code we do not control.
+          persist-credentials: false
+
+      # Which branch the analysed tree is actually on. Left to the action this is derived from THIS
+      # repository's event — "main" on a schedule — and the index would be attributed to a branch the
+      # analysed repository does not have, silently re-queueing everything if that name ever changes.
+      # Reading it back from the checkout is the only source that describes the tree being measured.
+      - name: Resolve the analysed branch
+        id: tree
+        run: |
+          branch=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$branch" = 'HEAD' ]; then
+            echo "::error::detached HEAD — target-ref must name a branch, not a tag or a commit"
+            exit 1
+          fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "analysing $branch"
+
+      # Installs every listed JDK and registers all of them in ~/.m2/toolchains.xml, which is what
+      # a project pinning a toolchain (guava compiles against JDK 26) needs in order to build here.
+      # The last entry runs Maven, so it must satisfy codiqo-maven-plugin's requiredJavaVersion of 25.
+      # The Codiqo action's own JDK setup is disabled below so this one stands.
+      - name: Set up JDKs
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.jdks }}
+          cache: maven
+
+      # Proves the toolchain file exists before hours of build time depend on it. A project with
+      # no toolchain requirement is unaffected either way.
+      - name: Show resolved toolchains
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          cat ~/.m2/toolchains.xml \
+            || echo "no ~/.m2/toolchains.xml — projects pinning a JDK toolchain will fail to build"
+
+      - id: codiqo
+        uses: codiqo/codiqo-action@main
+        with:
+          api-key: ${{ secrets.CODIQO_API_KEY }}
+          # The analysed repository's branch, not this one's. See the step above.
+          branch: ${{ steps.tree.outputs.branch }}
+          # Empty: the setup-java step above owns JDK installation, including the toolchains file
+          # that a second setup-java run would overwrite.
+          java-version: ''
+          commit-window: ${{ inputs.commit-window }}
+          max-commits-per-run: ${{ inputs.max-commits-per-run }}
+          per-commit-timeout: ${{ inputs.per-commit-timeout }}
+          maven-opts: ${{ inputs.maven-opts }}
+          maven-user-properties: ${{ inputs.maven-user-properties }}
+          ignore-coverage: ${{ inputs.ignore-coverage }}
+          first-parent-only: true
+          # ---------------------------------------------------------------- showcase policy
+          # Fixed here rather than exposed as inputs: a project may not weaken any of it.
+          #
+          # Bots belong out of a showcase: it measures human work. Stated explicitly, and matching
+          # the engine default rather than narrowing it, so what a public page publishes cannot move
+          # with a change upstream. The substring form is deliberate — guava's own exporter commits
+          # from a ...-bot@google.com address, which the bracketed GitHub form would not catch.
+          exclude-author-emails: '*bot*'
+          # ON, unlike the action's default, and deliberately: an import that fails leaves every
+          # caller count at zero, which is indistinguishable from "this code has no callers" once
+          # stored. A red run is recoverable; a public page asserting a blast radius of zero is not.
+          fail-on-jdtls-error: true
+          # One unbuildable commit must not block every newer one. The action stops at the first
+          # hard failure by default, and since the window is walked oldest-first that would wedge
+          # the project until someone intervenes. Attempt them all, then fail the step.
+          stop-on-first-failure: false
+          # The analysed repository did not opt in, so its AGENTS.md / CLAUDE.md files are kept out
+          # of the scoring prompt: upstream text must not be able to steer what we publish about it.
+          agent-instructions: false
+          # Logs from a public repository are public. Author names and emails stay out of them,
+          # which is the same rule the showcase pages follow.
+          log-commit-authors: false
+          # Names the artifact after the project, so a log download is unambiguous.
+          log-artifact-name: codiqo-logs-${{ inputs.showcase-slug }}
+
+      # The action already writes the pending/analysed/failed table. All that is missing from it
+      # is which project this was and where to read the result.
+      - name: Link the public page
+        if: always()
+        env:
+          TARGET_REPO: ${{ inputs.target-repo }}
+          SHOWCASE_SLUG: ${{ inputs.showcase-slug }}
+        run: |
+          printf '%s — [public showcase](https://codiqo.io/showcase/%s)\n' \
+            "$TARGET_REPO" "$SHOWCASE_SLUG" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,66 @@
+# Google Guava — https://github.com/google/guava
+#
+# One JDK, and it has to be 26. Three constraints meet at that number: codiqo-maven-plugin declares
+# requiredJavaVersion 25, so anything older makes Maven refuse to run the plugin at all; guava's
+# modules bind maven-toolchains-plugin with <jdk><version>26</version>, so compilation demands a 26
+# toolchain; and surefire selects ${surefire.toolchain.version}, which defaults to the Maven JVM's
+# own release. Installing 26 alone satisfies all three, since setup-java both sets JAVA_HOME and
+# registers the toolchain entry. Upstream CI runs Maven on 26 for the same reason.
+name: Guava
+
+on:
+  schedule:
+    # Daily, well outside the hour when everyone else's cron fires.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      max-commits-per-run:
+        description: 'Commits to analyse. Empty takes every pending commit; 1 is the cautious first-run value.'
+        required: false
+        type: string
+        default: ''
+      commit-window:
+        description: 'How far back to look (ISO-8601 period)'
+        required: false
+        type: string
+        default: 'P3M'
+      ignore-coverage:
+        description: 'Skip tests — use for the first run, to prove the wiring before spending build hours'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # On `schedule` the inputs context is empty, so every value below resolves to its unset form.
+  # commit-window is spelled out anyway: an empty window is not "no window" to the action, it is
+  # whatever the action's own default happens to be, and this page's history should not move when
+  # that default does. An empty max-commits-per-run genuinely means unbounded, which is the intent
+  # here — guava lands on the order of one commit a day (34 in the last 30), so a per-run count
+  # would only ever throttle the catch-up that P3M deliberately queues up.
+  analyze:
+    uses: ./.github/workflows/analyze-project.yml
+    with:
+      target-repo: google/guava
+      showcase-slug: guava
+      jdks: |
+        26
+      commit-window: ${{ inputs.commit-window || 'P3M' }}
+      max-commits-per-run: ${{ inputs.max-commits-per-run }}
+      ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      # guava keeps a file-for-file mirror of its sources under android/ — 1,572 of 3,227 tracked .java
+      # files. Copy-paste detection reads the indexed file set, so without this it matches the tree against
+      # its own copy and exhausts any heap (observed: dead at 9 GB and again at 24 GB). Excluding it took
+      # CPD to a 4 GB peak in 2.7 s and cost nothing analytically — those files carry no symbols of their
+      # own, so the symbol count was identical either way. android/ is a separate reactor upstream builds
+      # on its own, so nothing here compiles it in the first place.
+      #
+      # futures/ is the second such tree, found by running this analysis locally: failureaccess and
+      # listenablefuture are published from this repository but are not modules of the root reactor,
+      # so their four .java files have no owning module and the run reports them as orphans.
+      maven-user-properties: |
+        codiqo.excludePaths=android/**,futures/**
+    secrets:
+      CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_GUAVA }}
