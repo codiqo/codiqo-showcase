@@ -60,7 +60,15 @@ jobs:
       # futures/ is the second such tree, found by running this analysis locally: failureaccess and
       # listenablefuture are published from this repository but are not modules of the root reactor,
       # so their four .java files have no owning module and the run reports them as orphans.
+      #
+      # guava-gwt is excluded as a MODULE, not a path: it unpacks guava's and guava-testlib's
+      # sources under a second artifact, so the same fully-qualified name reaches the analysis
+      # twice and code-unit attribution goes ambiguous. Measured before this line existed: four
+      # commits with real code changes reported zero code units and zero files changed, including
+      # one that added a public MediaType constant and scored 0. RunArgs.excludeProjects names
+      # this exact reactor as its motivating case.
       maven-user-properties: |
         codiqo.excludePaths=android/**,futures/**
+        codiqo.excludeProjects=com.google.guava:guava-gwt
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_GUAVA }}

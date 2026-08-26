@@ -158,6 +158,11 @@ A worked example of what per-project tuning looks like, and why each line exists
   exclusion it matched the tree against its own copy and exhausted the heap twice, at 9 GB and again
   at 24 GB. Excluding it took the peak to 4 GB in 2.7 seconds and changed nothing analytically: the
   symbol count was identical, because those files carry no symbols of their own.
+- **`guava-gwt` is excluded as a module.** It recompiles guava's and guava-testlib's sources under
+  a second artifact, so a fully-qualified name reaches the analysis twice and code-unit attribution
+  goes ambiguous. Before this exclusion, four commits with real code changes reported zero code
+  units and zero files changed — one of them added a public `MediaType` constant and scored 0.
+  Paths cannot express this: a module is excluded by coordinates, not by directory.
 - **Heap is set explicitly.** A hosted runner has 16 GB and the JVM claims 25 % of it by default,
   which is 4 GB, while the diagnostics stage alone measured 4 to 7 GB on a reactor this size.
 - **The schedule keeps up.** Guava landed 34 commits in the last 30 days, so once the initial `P3M`
