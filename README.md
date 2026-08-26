@@ -164,7 +164,8 @@ A worked example of what per-project tuning looks like, and why each line exists
   units and zero files changed — one of them added a public `MediaType` constant and scored 0.
   Paths cannot express this: a module is excluded by coordinates, not by directory.
 - **Heap is set explicitly.** A hosted runner has 16 GB and the JVM claims 25 % of it by default,
-  which is 4 GB, while the diagnostics stage alone measured 4 to 7 GB on a reactor this size.
+  which is 4 GB, while the diagnostics stage alone peaked at 5 GB here. The whole run reached 9.0 GiB
+  of 15 on the runner, counting the forked build and the language server.
 - **The schedule keeps up.** Guava landed 34 commits in the last 30 days, so once the initial `P3M`
   backlog drains, a daily run has roughly one commit to do.
 
@@ -202,7 +203,7 @@ policy, fixed on the action step, or an action default left alone.
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
-| `maven-opts` | `-Xmx6g` | Heap for the analysis. The default 25 % of runner RAM is not enough for a large reactor. |
+| `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. Inherited by the forked build, so it is not the only claim on the runner. |
 | `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. |
 | `ignore-coverage` | `false` | Skip tests. Faster, and produces no coverage data. |
 

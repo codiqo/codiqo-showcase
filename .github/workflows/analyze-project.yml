@@ -64,12 +64,14 @@ on:
       maven-opts:
         description: >-
           MAVEN_OPTS for the analysis. A GitHub-hosted runner has 16 GB and the JVM takes 25% of RAM by
-          default — 4 GB — while the diagnostics stage alone was measured at 4-7 GB on a reactor the size
-          of guava. Left at the default the run dies or crawls, so size this explicitly. The forked
-          per-commit build inherits it, and the language server is a further process, so leave headroom.
+          default — 4 GB — while guava's diagnostics stage alone was measured at 5 GB, so the default
+          makes the run die or crawl and this has to be set explicitly. Note what else is competing:
+          the forked per-commit build inherits this value, the language server is a further process
+          with its own heap, and a project whose tests start containers pays for those too. Measured
+          totals on a 15 GiB runner were 9.0 GiB for guava and 7.5 GiB for ebean.
         required: false
         type: string
-        default: '-Xmx6g'
+        default: '-Xmx8g'
       maven-user-properties:
         description: >-
           Newline-separated key=value pairs passed as -Dkey=value to every Maven invocation, including the
