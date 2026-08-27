@@ -213,6 +213,7 @@ Fixed as policy, and deliberately not configurable per project:
 |---|---|---|
 | `fail-on-jdtls-error` | `true` | A failed import leaves every caller count at zero, which is indistinguishable from "no callers" once stored. A red run is recoverable; a page asserting a blast radius of zero is not. |
 | `stop-on-first-failure` | `false` | The pending list is walked oldest-first, so one wedged commit must not block every newer one. |
+| `cpd-minimum-tile-size` | `100` | PMD-CPD's own default, and SonarQube's Java sensitivity. The engine defaults to 64, which reports shorter clones than either tool — fine privately, misleading next to figures a reader may compare. |
 | `agent-instructions` | `false` | The analysed project never opted in. Its `AGENTS.md` must not steer what we publish about it. |
 | `log-commit-authors` | `false` | Logs on a public repository are public. |
 | `exclude-author-emails` | `*[bot]@*` | A showcase measures human work. Narrower than the engine's `*bot*` on purpose: it catches GitHub app identities without catching a human whose address merely contains the word — guava's Google-internal changes are exported under such an address. |

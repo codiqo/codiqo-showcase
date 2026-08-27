@@ -192,6 +192,12 @@ jobs:
           # hard failure by default, and since the window is walked oldest-first that would wedge
           # the project until someone intervenes. Attempt them all, then fail the step.
           stop-on-first-failure: false
+          # PMD-CPD's own default, and the same sensitivity SonarQube applies to Java at ten duplicated
+          # lines. The engine defaults to 64 tokens, which is stricter than either: on ebean that read
+          # as 20% of the codebase sitting inside a clone, true but shorter clones than the industry
+          # measures. Set here rather than lowered globally, because a public page should be comparable
+          # to what other tools report, and a private repository may legitimately want the stricter view.
+          cpd-minimum-tile-size: 100
           # The analysed repository did not opt in, so its AGENTS.md / CLAUDE.md files are kept out
           # of the scoring prompt: upstream text must not be able to steer what we publish about it.
           agent-instructions: false
