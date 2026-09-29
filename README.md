@@ -14,8 +14,9 @@ can be traced back to the run that produced it.
 |---|---|---|
 | [google/guava](https://github.com/google/guava) | [`project-guava.yml`](.github/workflows/project-guava.yml) | [codiqo.io/showcase/guava](https://codiqo.io/showcase/guava) |
 | [ebean-orm/ebean](https://github.com/ebean-orm/ebean) | [`project-ebean.yml`](.github/workflows/project-ebean.yml) | [codiqo.io/showcase/ebean](https://codiqo.io/showcase/ebean) |
+| [jetty/jetty.project](https://github.com/jetty/jetty.project) | [`project-jetty.yml`](.github/workflows/project-jetty.yml) | [codiqo.io/showcase/jetty](https://codiqo.io/showcase/jetty) |
 
-**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
+**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
 
 ---
 
@@ -189,6 +190,36 @@ The contrasting case: a project that needs almost nothing.
   build still goes green with coverage at zero. Which is the argument for not adding `maven-args`
   here.
 
+## Project notes: jetty
+
+The large case, and the one that needs the clock more than the heap.
+
+- **Size sets every other choice.** Roughly 450 reactor modules and 37,000 tests on `jetty-12.1.x`.
+  A full build with `-T 1C` took about half an hour on a 14-core workstation, so a four-core runner
+  cannot fit a commit inside the shared hour. `per-commit-timeout` is `2h`, an estimate to replace
+  with the figure the first runs log.
+- **Every six hours, not daily.** Jetty lands about 49 first-parent commits a month. At two hours
+  a commit, one 340-minute run a day falls behind for good, so the cron fires four times a day and
+  the concurrency group chains the runs instead of overlapping them.
+- **Jetty's own build cache is switched off.** `.mvn/` enables `maven-build-cache-extension`, which
+  would restore unchanged modules without running their tests: no coverage, no failure, and a green
+  build. The fork does not inherit `-D` user properties, so `maven.build.cache.enabled=false`
+  travels in `maven-opts` as a system property, which the extension reads as a fallback.
+- **Parallel, and memory to watch.** The shared `1C` applies. Jetty's surefire `argLine` asks for
+  `-Xms4g -Xmx6g` per test fork, and up to four modules test at once on a hosted runner. If a commit
+  dies with exit 137, set `maven-parallelism: '2'` here before touching the heap.
+- **JDK 25.** Jetty 12.1 compiles for 17 and pins no toolchain; a full local build on Temurin 25
+  preceded this wiring.
+- **Duplication is real, not mirrored.** `jetty-ee10` and `jetty-ee11` are maintained side by side:
+  931 of the 1,081 `ee10` sources with an `ee11` counterpart are identical once the environment name
+  is swapped. Unlike guava's `android/` tree, both are shipped code, so neither is excluded and the
+  page reports the duplication as it stands. `jetty-ee8` is generated from `ee9` at build time and
+  holds only 30 tracked `.java` files. If copy-paste detection exhausts the heap the way it did on
+  guava, that is the first place to look.
+- **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
+  snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
+  failing test costs its own coverage rather than the commit.
+
 ## Reusable workflow reference
 
 `analyze-project.yml` exposes only what a project genuinely varies. Everything else is either showcase
@@ -204,7 +235,8 @@ policy, fixed on the action step, or an action default left alone.
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
 | `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. Inherited by the forked build, so it is not the only claim on the runner. |
-| `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. |
+| `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. They do not reach the forked build; use `maven-opts` for a property the project's own build must see. |
+| `maven-parallelism` | `1C` | Maven `-T` for the per-commit build, one thread per runner core. The plugin hands it to the fork. Each concurrently built module may start its own test JVM, so lower it if a commit dies with exit 137. |
 | `ignore-coverage` | `false` | Skip tests. Faster, and produces no coverage data. |
 
 Fixed as policy, and deliberately not configurable per project:
@@ -226,7 +258,7 @@ What bounds a run is a clock, not a commit count.
 | Bound | Value | Effect |
 |---|---|---|
 | Job timeout | 340 min | The real limit. Six hours is the hosted-runner maximum, and stopping short of it means Actions cancels the job, which still uploads the logs and writes the summary. |
-| Per-commit deadline | 60 min | The build and test budgets are fitted under it. A commit that exceeds them is excluded as a build failure and not retried. |
+| Per-commit deadline | 60 min | The build and test budgets are fitted under it. A commit that exceeds them is excluded as a build failure and not retried. Jetty raises it to 2 h. |
 | Commit window | `P3M` | Bounds what enters the index. It does **not** filter the pending list afterwards. |
 | Commits per run | unbounded | Every pending commit, oldest first, until the job timeout. |
 
@@ -247,6 +279,7 @@ Two consequences worth internalising before the first run:
 | `The plugin ... has unmet prerequisites: Required Java version 25` | The JDK running Maven is older than the plugin allows | Make the **last** entry in `jdks` 25 or newer |
 | Build fails with no toolchain found for a JDK | The project pins a toolchain the runner does not have | List every version the project asks for in `jdks`, Maven's own last |
 | Killed during copy-paste detection at very high heap | The repository mirrors its own sources, so the tree matches against its copy | `maven-user-properties: codiqo.excludePaths=<tree>/**` |
+| Commit killed with exit 137 | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
 | Job cancelled after 340 minutes | Backlog larger than one run's budget | Expected during a catch-up. It resumes on the next run |
 | Everything appears pending again | The commit index is keyed by branch name | `analyze-project.yml` reads the branch from the checkout, so the analysed repository's name is used rather than this repository's |
 
@@ -260,6 +293,7 @@ secrets redacted before upload.
 ├── analyze-project.yml    shared policy, workflow_call only, never triggered directly
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
 ├── project-ebean.yml      another, needing nothing but a different JDK
+├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
 └── project-<slug>.yml     ... one file per project, added the same way
 ```
 

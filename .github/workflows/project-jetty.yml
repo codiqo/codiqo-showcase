@@ -1,0 +1,69 @@
+# Eclipse Jetty — https://github.com/jetty/jetty.project
+#
+# The large case: roughly 450 reactor modules and 37,000 tests on the default branch, jetty-12.1.x.
+# A full `install` with -T 1C took about half an hour on a 14-core workstation, so a four-core hosted
+# runner needs well over the shared one-hour deadline for a commit. Three settings follow from that.
+#
+# per-commit-timeout is raised to 2h. It is an estimate until a run measures it; the per-commit log
+# records the real figure, and this is the number to tune once it does.
+#
+# The schedule fires every six hours rather than daily. Jetty lands about 49 first-parent commits a
+# month, so at two hours a commit one 340-minute run a day would never drain the P3M backlog. The
+# concurrency group in analyze-project.yml queues a firing behind a run still in progress, so the
+# runs chain instead of overlapping, and each one resumes where the last stopped.
+#
+# maven-parallelism stays at the shared 1C. Jetty's own surefire argLine asks for -Xms4g -Xmx6g per
+# test fork, and up to four modules test at once, so if a commit dies with exit 137 set it to 2 here
+# before touching the heap.
+#
+# JDK 25. Jetty 12.1 compiles for 17 and pins no toolchain, and a full build on Temurin 25 was run
+# locally before wiring this up. One entry covers the build, the tests and the language server.
+#
+# Jetty enables maven-build-cache-extension in .mvn/. On a runner that builds commit after commit
+# into one ~/.m2, it would restore every module whose inputs did not change without running its
+# tests, and those modules would reach the analysis with no coverage and no failure. The switch has
+# to travel in MAVEN_OPTS: the forked per-commit build does not inherit -D user properties, but it
+# does inherit the JVM's system properties, and the extension falls back to those.
+name: Jetty
+
+on:
+  schedule:
+    # Every six hours, offset from guava's 03:17 and ebean's 04:43.
+    - cron: '29 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      max-commits-per-run:
+        description: 'Commits to analyse. Empty takes every pending commit; 1 is the cautious first-run value.'
+        required: false
+        type: string
+        default: ''
+      commit-window:
+        description: 'How far back to look (ISO-8601 period)'
+        required: false
+        type: string
+        default: 'P3M'
+      ignore-coverage:
+        description: 'Skip tests — use for the first run, to prove the wiring before spending build hours'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # On `schedule` the inputs context is empty, so every value below resolves to its unset form.
+  analyze:
+    uses: ./.github/workflows/analyze-project.yml
+    with:
+      target-repo: jetty/jetty.project
+      showcase-slug: jetty
+      jdks: |
+        25
+      commit-window: ${{ inputs.commit-window || 'P3M' }}
+      max-commits-per-run: ${{ inputs.max-commits-per-run }}
+      per-commit-timeout: '2h'
+      maven-opts: '-Xmx8g -Dmaven.build.cache.enabled=false'
+      ignore-coverage: ${{ inputs.ignore-coverage || false }}
+    secrets:
+      CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_JETTY }}

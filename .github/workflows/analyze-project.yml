@@ -77,10 +77,23 @@ on:
           Newline-separated key=value pairs passed as -Dkey=value to every Maven invocation, including the
           analysis mojo itself. This is how project-specific engine options reach the run without the
           workflow needing an input for each one — e.g. codiqo.excludePaths for a repository that mirrors
-          its own sources. Never put secrets here; they would appear on the command line.
+          its own sources. Never put secrets here; they would appear on the command line. They do NOT
+          reach the forked per-commit build: the plugin starts it with its own property set, so a
+          property that must shape the project's own build belongs in maven-opts, whose -D system
+          properties the fork inherits.
         required: false
         type: string
         default: ''
+      maven-parallelism:
+        description: >-
+          Maven -T for the per-commit build. The analysis mojo is an aggregator, so -T on the host
+          invocation does nothing but set the degree of concurrency the plugin hands the forked build.
+          1C is one thread per runner core — four on a hosted runner. Every module built concurrently
+          may fork its own test JVM, so this trades memory for wall-clock: lower it, or set it empty to
+          build serially, if a commit dies with exit 137.
+        required: false
+        type: string
+        default: '1C'
       ignore-coverage:
         description: 'Skip tests in the per-commit build. Faster, but produces no coverage data.'
         required: false
@@ -170,6 +183,7 @@ jobs:
           per-commit-timeout: ${{ inputs.per-commit-timeout }}
           maven-opts: ${{ inputs.maven-opts }}
           maven-user-properties: ${{ inputs.maven-user-properties }}
+          maven-parallelism: ${{ inputs.maven-parallelism }}
           ignore-coverage: ${{ inputs.ignore-coverage }}
           first-parent-only: true
           # ---------------------------------------------------------------- showcase policy
