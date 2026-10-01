@@ -196,8 +196,10 @@ The large case, and the one that needs the clock more than the heap.
 
 - **Size sets every other choice.** Roughly 450 reactor modules and 37,000 tests on `jetty-12.1.x`.
   A full build with `-T 1C` took about half an hour on a 14-core workstation, so a four-core runner
-  cannot fit a commit inside the shared hour. `per-commit-timeout` is `2h`, an estimate to replace
-  with the figure the first runs log.
+  cannot fit a commit inside the shared hour. `per-commit-timeout` is `2h` and
+  `build-timeout-minutes` is `90`, leaving half an hour for the analysis. Without the second, the
+  forked build keeps the action's 45 minutes whatever the per-commit deadline says. Both are
+  estimates to replace with the figures the first runs log.
 - **Every six hours, not daily.** Jetty lands about 49 first-parent commits a month. At two hours
   a commit, one 340-minute run a day falls behind for good, so the cron fires four times a day and
   the concurrency group chains the runs instead of overlapping them.
@@ -235,6 +237,7 @@ policy, fixed on the action step, or an action default left alone.
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
+| `build-timeout-minutes` | `45` | Deadline for the forked build of one commit, tests included. It has to fire before `per-commit-timeout`, so the action clamps it to three quarters of that. |
 | `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. Inherited by the forked build, so it is not the only claim on the runner. |
 | `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. They do not reach the forked build; use `maven-opts` for a property the project's own build must see. |
 | `maven-parallelism` | `1C` | Maven `-T` for the per-commit build, one thread per runner core. The plugin hands it to the fork. Each concurrently built module may start its own test JVM, so lower it if a commit dies with exit 137. |

@@ -61,6 +61,14 @@ on:
         required: false
         type: string
         default: '1h'
+      build-timeout-minutes:
+        description: >-
+          Minutes the forked build of one commit may take, tests included. It must fire before
+          per-commit-timeout so a slow build is recorded as a build failure rather than killed with
+          the analysis; the action clamps it to three quarters of that deadline.
+        required: false
+        type: string
+        default: '45'
       maven-opts:
         description: >-
           MAVEN_OPTS for the analysis. A GitHub-hosted runner has 16 GB and the JVM takes 25% of RAM by
@@ -181,6 +189,7 @@ jobs:
           commit-window: ${{ inputs.commit-window }}
           max-commits-per-run: ${{ inputs.max-commits-per-run }}
           per-commit-timeout: ${{ inputs.per-commit-timeout }}
+          build-timeout-minutes: ${{ inputs.build-timeout-minutes }}
           maven-opts: ${{ inputs.maven-opts }}
           maven-user-properties: ${{ inputs.maven-user-properties }}
           maven-parallelism: ${{ inputs.maven-parallelism }}

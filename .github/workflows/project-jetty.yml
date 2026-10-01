@@ -4,8 +4,10 @@
 # A full `install` with -T 1C took about half an hour on a 14-core workstation, so a four-core hosted
 # runner needs well over the shared one-hour deadline for a commit. Three settings follow from that.
 #
-# per-commit-timeout is raised to 2h. It is an estimate until a run measures it; the per-commit log
-# records the real figure, and this is the number to tune once it does.
+# per-commit-timeout is raised to 2h and build-timeout-minutes to 90, leaving half an hour for the
+# analysis. The second is needed as well: the forked build otherwise keeps the action's 45 minutes,
+# whatever the per-commit deadline. Both are estimates until a run measures them; the per-commit log
+# records the real figures, and these are the numbers to tune once it does.
 #
 # The schedule fires every six hours rather than daily. Jetty lands about 49 first-parent commits a
 # month, so at two hours a commit one 340-minute run a day would never drain the P3M backlog. The
@@ -65,6 +67,7 @@ jobs:
       commit-window: ${{ inputs.commit-window || 'P3M' }}
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       per-commit-timeout: '2h'
+      build-timeout-minutes: '90'
       maven-opts: '-Xmx8g -Dmaven.build.cache.enabled=false'
       maven-parallelism: '2'
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
