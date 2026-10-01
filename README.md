@@ -205,9 +205,10 @@ The large case, and the one that needs the clock more than the heap.
   would restore unchanged modules without running their tests: no coverage, no failure, and a green
   build. The fork does not inherit `-D` user properties, so `maven.build.cache.enabled=false`
   travels in `maven-opts` as a system property, which the extension reads as a fallback.
-- **Parallel, and memory to watch.** The shared `1C` applies. Jetty's surefire `argLine` asks for
-  `-Xms4g -Xmx6g` per test fork, and up to four modules test at once on a hosted runner. If a commit
-  dies with exit 137, set `maven-parallelism: '2'` here before touching the heap.
+- **Two modules at a time, not `1C`.** Jetty's surefire `argLine` asks for `-Xms4g -Xmx6g` per
+  test fork, and at `1C` up to four modules test at once on a hosted runner. The first run exhausted
+  the runner's memory during the build of its first commit and the runner shut down with exit 143,
+  so `maven-parallelism` is `'2'`. If memory still runs out, lower it to `1` before touching the heap.
 - **JDK 25.** Jetty 12.1 compiles for 17 and pins no toolchain; a full local build on Temurin 25
   preceded this wiring.
 - **Duplication is real, not mirrored.** `jetty-ee10` and `jetty-ee11` are maintained side by side:
@@ -279,7 +280,7 @@ Two consequences worth internalising before the first run:
 | `The plugin ... has unmet prerequisites: Required Java version 25` | The JDK running Maven is older than the plugin allows | Make the **last** entry in `jdks` 25 or newer |
 | Build fails with no toolchain found for a JDK | The project pins a toolchain the runner does not have | List every version the project asks for in `jdks`, Maven's own last |
 | Killed during copy-paste detection at very high heap | The repository mirrors its own sources, so the tree matches against its copy | `maven-user-properties: codiqo.excludePaths=<tree>/**` |
-| Commit killed with exit 137 | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
+| Commit killed with exit 137, or the job ends with exit 143 and "The runner has received a shutdown signal" | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
 | Job cancelled after 340 minutes | Backlog larger than one run's budget | Expected during a catch-up. It resumes on the next run |
 | Everything appears pending again | The commit index is keyed by branch name | `analyze-project.yml` reads the branch from the checkout, so the analysed repository's name is used rather than this repository's |
 

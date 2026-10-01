@@ -12,9 +12,11 @@
 # concurrency group in analyze-project.yml queues a firing behind a run still in progress, so the
 # runs chain instead of overlapping, and each one resumes where the last stopped.
 #
-# maven-parallelism stays at the shared 1C. Jetty's own surefire argLine asks for -Xms4g -Xmx6g per
-# test fork, and up to four modules test at once, so if a commit dies with exit 137 set it to 2 here
-# before touching the heap.
+# maven-parallelism is 2, not the shared 1C. Jetty's own surefire argLine asks for -Xms4g -Xmx6g per
+# test fork, and at 1C up to four modules test at once. The first scheduled run (36824450139) lost the
+# whole runner 19 minutes into its first commit: memory at 14 of 15 GiB, swap nearly full, no single
+# JVM above 5 GB, and the runner shut down with exit 143 before the analysis began. Two concurrent
+# modules halve the test JVMs; if memory still runs out, lower it to 1 before touching the heap.
 #
 # JDK 25. Jetty 12.1 compiles for 17 and pins no toolchain, and a full build on Temurin 25 was run
 # locally before wiring this up. One entry covers the build, the tests and the language server.
@@ -64,6 +66,7 @@ jobs:
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       per-commit-timeout: '2h'
       maven-opts: '-Xmx8g -Dmaven.build.cache.enabled=false'
+      maven-parallelism: '2'
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_JETTY }}
