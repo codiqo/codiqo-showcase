@@ -193,7 +193,7 @@ The contrasting case: a project that needs almost nothing.
 
 ## Project notes: jetty
 
-The large case, and the one that needs the clock more than the heap.
+The large case, and the one that needs both the clock and the heap.
 
 - **Size sets every other choice.** Roughly 450 reactor modules and 37,000 tests on `jetty-12.1.x`.
   A full build with `-T 1C` took about half an hour on a 14-core workstation, so a four-core runner
@@ -207,7 +207,8 @@ The large case, and the one that needs the clock more than the heap.
 - **Jetty's own build cache is switched off.** `.mvn/` enables `maven-build-cache-extension`, which
   would restore unchanged modules without running their tests: no coverage, no failure, and a green
   build. The fork does not inherit `-D` user properties, so `maven.build.cache.enabled=false`
-  travels in `maven-opts` as a system property, which the extension reads as a fallback.
+  travels in `fork-maven-opts`, the fork's `MAVEN_OPTS`, as a system property, which the extension
+  reads as a fallback.
 - **Two modules at a time, not `1C`.** Jetty's surefire `argLine` asks for `-Xms4g -Xmx6g` per
   test fork, and at `1C` up to four modules test at once on a hosted runner. The first run exhausted
   the runner's memory during the build of its first commit and the runner shut down with exit 143,
@@ -218,8 +219,17 @@ The large case, and the one that needs the clock more than the heap.
   931 of the 1,081 `ee10` sources with an `ee11` counterpart are identical once the environment name
   is swapped. Unlike guava's `android/` tree, both are shipped code, so neither is excluded and the
   page reports the duplication as it stands. `jetty-ee8` is generated from `ee9` at build time and
-  holds only 30 tracked `.java` files. If copy-paste detection exhausts the heap the way it did on
-  guava, that is the first place to look.
+  holds only 30 tracked `.java` files.
+- **Jetty's duplication is not comparable with the other pages.** Two settings differ, both forced by
+  this codebase. `cpd-ignore-identifiers` is `false`, so only clones that keep their names count:
+  PMD's Java tokenizer crashes on this tree when it replaces identifiers
+  ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133)). And `cpd-minimum-tile-size` is `125`,
+  not `100`: complete copy-paste detection ran out of the analysis heap with the index already
+  holding 6 GB, and fewer, longer clones take less to hold.
+- **The analysis gets 10 GB, the build keeps 8.** `maven-opts` is `-Xmx10g` for the analysis and the
+  language server, while `fork-maven-opts` keeps the forked build at `-Xmx8g`. The build has
+  finished before the analysis starts, but while it runs its own JVM shares the runner with two
+  test JVMs of up to 6 GB each.
 - **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
   snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
   failing test costs its own coverage rather than the commit.
@@ -258,10 +268,13 @@ policy, fixed on the action step, or an action default left alone.
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
 | `build-timeout-minutes` | `45` | Deadline for the forked build of one commit, tests included. It has to fire before `per-commit-timeout`, so the action clamps it to three quarters of that. |
-| `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. Inherited by the forked build, so it is not the only claim on the runner. |
+| `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. The language server copies its `-Xmx`, and the forked build inherits it unless `fork-maven-opts` is set, so it is not the only claim on the runner. |
+| `fork-maven-opts` | *(empty: inherits `maven-opts`)* | `MAVEN_OPTS` for the forked build alone, for a project whose analysis needs more heap than its build. It replaces `maven-opts` for the fork whole, so repeat any `-D` the project's build relies on. |
 | `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. They do not reach the forked build; use `maven-opts` for a property the project's own build must see. |
 | `maven-parallelism` | `1C` | Maven `-T` for the per-commit build, one thread per runner core. The plugin hands it to the fork. Each concurrently built module may start its own test JVM, so lower it if a commit dies with exit 137. |
 | `ignore-coverage` | `false` | Skip tests. Faster, and produces no coverage data. |
+| `cpd-ignore-identifiers` | `true` | Match clones whose identifiers were renamed. `false` counts only clones that keep their names. |
+| `cpd-minimum-tile-size` | `100` | Shortest reported clone, in tokens. PMD-CPD's own default, and SonarQube's Java sensitivity; the engine's 64 reports shorter clones than either tool. A project may raise it when copy-paste detection cannot otherwise fit in memory, and its notes must say so. |
 
 Fixed as policy, and deliberately not configurable per project:
 
@@ -269,7 +282,6 @@ Fixed as policy, and deliberately not configurable per project:
 |---|---|---|
 | `fail-on-jdtls-error` | `true` | A failed import leaves every caller count at zero, which is indistinguishable from "no callers" once stored. A red run is recoverable; a page asserting a blast radius of zero is not. |
 | `stop-on-first-failure` | `false` | The pending list is walked oldest-first, so one wedged commit must not block every newer one. |
-| `cpd-minimum-tile-size` | `100` | PMD-CPD's own default, and SonarQube's Java sensitivity. The engine defaults to 64, which reports shorter clones than either tool — fine privately, misleading next to figures a reader may compare. |
 | `agent-instructions` | `false` | The analysed project never opted in. Its `AGENTS.md` must not steer what we publish about it. |
 | `log-commit-authors` | `false` | Logs on a public repository are public. |
 | `exclude-author-emails` | `*[bot]@*` | A showcase measures human work. Narrower than the engine's `*bot*` on purpose: it catches GitHub app identities without catching a human whose address merely contains the word — guava's Google-internal changes are exported under such an address. |
@@ -317,7 +329,7 @@ secrets redacted before upload.
 ├── analyze-project.yml    shared policy, workflow_call only, never triggered directly
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
 ├── project-ebean.yml      another, needing nothing but a different JDK
-├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
+├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off, split heaps
 ├── project-kryo.yml       a small reactor with one module that recompiles another's sources
 └── project-<slug>.yml     ... one file per project, added the same way
 ```

@@ -74,12 +74,22 @@ on:
           MAVEN_OPTS for the analysis. A GitHub-hosted runner has 16 GB and the JVM takes 25% of RAM by
           default — 4 GB — while guava's diagnostics stage alone was measured at 5 GB, so the default
           makes the run die or crawl and this has to be set explicitly. Note what else is competing:
-          the forked per-commit build inherits this value, the language server is a further process
-          with its own heap, and a project whose tests start containers pays for those too. Measured
-          totals on a 15 GiB runner were 9.0 GiB for guava and 7.5 GiB for ebean.
+          the language server copies this -Xmx, the forked per-commit build inherits the whole value
+          unless fork-maven-opts is set, and a project whose tests start containers pays for those too.
+          Measured totals on a 15 GiB runner were 9.0 GiB for guava and 7.5 GiB for ebean.
         required: false
         type: string
         default: '-Xmx8g'
+      fork-maven-opts:
+        description: >-
+          MAVEN_OPTS for the forked per-commit build alone. Empty, the fork inherits maven-opts, so the
+          analysis heap and the build heap are one setting. Set it when the analysis needs more heap than
+          the build: the build has finished before the analysis starts, but while it runs its own JVM,
+          its test forks and the language server all share the runner. It replaces maven-opts for the
+          fork whole, so repeat any -D system property the project's own build relies on.
+        required: false
+        type: string
+        default: ''
       maven-user-properties:
         description: >-
           Newline-separated key=value pairs passed as -Dkey=value to every Maven invocation, including the
@@ -115,6 +125,15 @@ on:
         required: false
         type: boolean
         default: true
+      cpd-minimum-tile-size:
+        description: >-
+          Shortest clone copy-paste detection reports, in tokens. 100 is PMD-CPD's own default and the
+          sensitivity SonarQube applies to Java; raise it only for a project whose copy-paste detection
+          cannot fit in memory otherwise, and say so in its notes, since its figures then count fewer,
+          longer clones than the other pages do.
+        required: false
+        type: number
+        default: 100
     secrets:
       CODIQO_API_KEY:
         description: 'API key of the showcase organization the results belong to.'
@@ -199,10 +218,16 @@ jobs:
           per-commit-timeout: ${{ inputs.per-commit-timeout }}
           build-timeout-minutes: ${{ inputs.build-timeout-minutes }}
           maven-opts: ${{ inputs.maven-opts }}
+          fork-maven-opts: ${{ inputs.fork-maven-opts }}
           maven-user-properties: ${{ inputs.maven-user-properties }}
           maven-parallelism: ${{ inputs.maven-parallelism }}
           ignore-coverage: ${{ inputs.ignore-coverage }}
           cpd-ignore-identifiers: ${{ inputs.cpd-ignore-identifiers }}
+          # PMD-CPD's own default of 100, and the same sensitivity SonarQube applies to Java at ten
+          # duplicated lines. The engine defaults to 64 tokens, which is stricter than either: on ebean
+          # that read as 20% of the codebase sitting inside a clone, true but shorter clones than the
+          # industry measures. A project may raise it, never lower it below what other tools report.
+          cpd-minimum-tile-size: ${{ inputs.cpd-minimum-tile-size }}
           first-parent-only: true
           # ---------------------------------------------------------------- showcase policy
           # Fixed here rather than exposed as inputs: a project may not weaken any of it.
@@ -224,12 +249,6 @@ jobs:
           # hard failure by default, and since the window is walked oldest-first that would wedge
           # the project until someone intervenes. Attempt them all, then fail the step.
           stop-on-first-failure: false
-          # PMD-CPD's own default, and the same sensitivity SonarQube applies to Java at ten duplicated
-          # lines. The engine defaults to 64 tokens, which is stricter than either: on ebean that read
-          # as 20% of the codebase sitting inside a clone, true but shorter clones than the industry
-          # measures. Set here rather than lowered globally, because a public page should be comparable
-          # to what other tools report, and a private repository may legitimately want the stricter view.
-          cpd-minimum-tile-size: 100
           # The analysed repository did not opt in, so its AGENTS.md / CLAUDE.md files are kept out
           # of the scoring prompt: upstream text must not be able to steer what we publish about it.
           agent-instructions: false
