@@ -15,8 +15,9 @@ can be traced back to the run that produced it.
 | [google/guava](https://github.com/google/guava) | [`project-guava.yml`](.github/workflows/project-guava.yml) | [codiqo.io/showcase/guava](https://codiqo.io/showcase/guava) |
 | [ebean-orm/ebean](https://github.com/ebean-orm/ebean) | [`project-ebean.yml`](.github/workflows/project-ebean.yml) | [codiqo.io/showcase/ebean](https://codiqo.io/showcase/ebean) |
 | [jetty/jetty.project](https://github.com/jetty/jetty.project) | [`project-jetty.yml`](.github/workflows/project-jetty.yml) | [codiqo.io/showcase/jetty](https://codiqo.io/showcase/jetty) |
+| [EsotericSoftware/kryo](https://github.com/EsotericSoftware/kryo) | [`project-kryo.yml`](.github/workflows/project-kryo.yml) | [codiqo.io/showcase/kryo](https://codiqo.io/showcase/kryo) |
 
-**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
+**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Project notes: kryo](#project-notes-kryo) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
 
 ---
 
@@ -223,6 +224,25 @@ The large case, and the one that needs the clock more than the heap.
   snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
   failing test costs its own coverage rather than the commit.
 
+## Project notes: kryo
+
+The small case, and the one whose only trap is a module that builds the same sources twice.
+
+- **JDK 25, the floor rather than a preference.** Kryo compiles its main sources for Java 8, builds
+  upstream on 11 and tests on every LTS through 25 and on 27. The plugin's `requiredJavaVersion` is
+  25, which upstream already tests on. A full local build on Temurin 25 passed all 337 tests in about
+  twenty seconds. No toolchain is pinned, so one entry covers everything.
+- **`kryo5` is excluded as a module.** `main-versioned/` declares the same `src/` and `test/`
+  directories as `main/` and shades the result into `com.esotericsoftware.kryo.kryo5`. The local
+  build compiled the same 77 sources and ran the same 337 tests in both modules, so every
+  fully-qualified name would reach the analysis twice — the guava-gwt case again, and excluded the
+  same way, by coordinates. The fork still builds and tests `kryo5`; the duplicated work costs about
+  ten seconds a commit.
+- **`benchmarks` stays in.** It is a real reactor module with its own JMH sources, not a copy.
+- **Nothing else to tune.** Every shared default applies: the hour per commit, `1C` parallelism and
+  the `-Xmx8g` heap all have ample room. Dependabot accounts for 9 of the 43 first-parent commits in
+  the last three months, and the bot filter keeps them off the page.
+
 ## Reusable workflow reference
 
 `analyze-project.yml` exposes only what a project genuinely varies. Everything else is either showcase
@@ -298,6 +318,7 @@ secrets redacted before upload.
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
 ├── project-ebean.yml      another, needing nothing but a different JDK
 ├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
+├── project-kryo.yml       a small reactor with one module that recompiles another's sources
 └── project-<slug>.yml     ... one file per project, added the same way
 ```
 

@@ -1,0 +1,64 @@
+# Kryo — https://github.com/EsotericSoftware/kryo
+#
+# The small case: three modules, 77 main sources and 337 tests. A full `verify` with -T 1C took about
+# twenty seconds on a workstation, so every shared default fits with room to spare.
+#
+# JDK 25, the floor rather than a preference. Kryo compiles its main sources for Java 8 and upstream
+# CI builds on 11, then tests on every LTS through 25 and on 27. codiqo-maven-plugin declares
+# requiredJavaVersion 25, and 25 is one of the JDKs upstream already tests on. A full build on
+# Temurin 25 was run locally before wiring this up: 337 tests, no failures. Kryo pins no toolchain,
+# so one entry covers the build, the tests and the language server. The jdk11ge and jdk17ge profiles
+# activate on the JDK, which adds test-jdk11/ and test-jdk17/ to the test sources, so the records
+# tests are part of every run.
+#
+# kryo5 is excluded as a MODULE, for the same reason as guava-gwt. main-versioned/ declares the same
+# src/ and test/ directories as main/ and shades the result into com.esotericsoftware.kryo.kryo5, so
+# every fully-qualified name reaches the analysis twice and code-unit attribution goes ambiguous. The
+# local build confirmed it: both modules compiled the same 77 sources and ran the same 337 tests. The
+# exclusion applies to the analysis only, so the fork still builds and tests kryo5 — twenty seconds
+# of duplicated work, which is cheaper than a second build configuration.
+#
+# benchmarks/ stays in. It is a reactor module with its own JMH sources, not a copy of anything.
+name: Kryo
+
+on:
+  schedule:
+    # Daily, offset from guava's 03:17, ebean's 04:43 and jetty's six-hourly :29.
+    - cron: '11 2 * * *'
+  workflow_dispatch:
+    inputs:
+      max-commits-per-run:
+        description: 'Commits to analyse. Empty takes every pending commit; 1 is the cautious first-run value.'
+        required: false
+        type: string
+        default: ''
+      commit-window:
+        description: 'How far back to look (ISO-8601 period)'
+        required: false
+        type: string
+        default: 'P3M'
+      ignore-coverage:
+        description: 'Skip tests — use for the first run, to prove the wiring before spending build hours'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # On `schedule` the inputs context is empty, so every value below resolves to its unset form.
+  analyze:
+    uses: ./.github/workflows/analyze-project.yml
+    with:
+      target-repo: EsotericSoftware/kryo
+      showcase-slug: kryo
+      jdks: |
+        25
+      commit-window: ${{ inputs.commit-window || 'P3M' }}
+      max-commits-per-run: ${{ inputs.max-commits-per-run }}
+      ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      maven-user-properties: |
+        codiqo.excludeProjects=com.esotericsoftware.kryo:kryo5
+    secrets:
+      CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_KRYO }}
