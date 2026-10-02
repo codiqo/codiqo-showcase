@@ -71,5 +71,6 @@ jobs:
       maven-opts: '-Xmx8g -Dmaven.build.cache.enabled=false'
       maven-parallelism: '2'
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      cpd-ignore-identifiers: false
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_JETTY }}

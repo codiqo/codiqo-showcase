@@ -107,6 +107,14 @@ on:
         required: false
         type: boolean
         default: false
+      cpd-ignore-identifiers:
+        description: >-
+          Let copy-paste detection match code whose identifiers were renamed, the engine default. Off
+          reports only clones that keep their names, a per-project choice for a codebase where the
+          renamed-copy matches are not worth what they cost.
+        required: false
+        type: boolean
+        default: true
     secrets:
       CODIQO_API_KEY:
         description: 'API key of the showcase organization the results belong to.'
@@ -194,6 +202,7 @@ jobs:
           maven-user-properties: ${{ inputs.maven-user-properties }}
           maven-parallelism: ${{ inputs.maven-parallelism }}
           ignore-coverage: ${{ inputs.ignore-coverage }}
+          cpd-ignore-identifiers: ${{ inputs.cpd-ignore-identifiers }}
           first-parent-only: true
           # ---------------------------------------------------------------- showcase policy
           # Fixed here rather than exposed as inputs: a project may not weaken any of it.
