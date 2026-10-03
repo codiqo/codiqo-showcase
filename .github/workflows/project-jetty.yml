@@ -68,13 +68,15 @@ jobs:
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       per-commit-timeout: '2h'
       build-timeout-minutes: '90'
-      # 10 GB rather than the shared 8: complete copy-paste detection ran out of 8 GB (run
-      # 37038127643), with the index already holding 6 GB when CPD began. fork-maven-opts is left
-      # empty, so the forked build inherits this value, the build-cache switch included.
-      maven-opts: '-Xmx10g -Dmaven.build.cache.enabled=false'
-      # 125 rather than the shared 100, the one setting that trades comparability for memory: fewer,
-      # longer clones to hold. Jetty's duplication therefore counts clones of 125 tokens or more.
-      cpd-minimum-tile-size: 125
+      # 12 GB rather than the shared 8: complete copy-paste detection ran out of 8 GB (run
+      # 37038127643) and of 10 GB at a tile size of 125 (run 37051154860), with the index already
+      # holding 6 GB when CPD began. fork-maven-opts is left empty, so the forked build inherits this
+      # value, the build-cache switch included.
+      maven-opts: '-Xmx12g -Dmaven.build.cache.enabled=false'
+      # 150 rather than the shared 100, the one setting that trades comparability for memory: fewer,
+      # longer clones to hold. Standalone PMD needed more than 6 GB for this tree at 100, 5 GB at 125
+      # and under 4 GB at 200. Jetty's duplication therefore counts clones of 150 tokens or more.
+      cpd-minimum-tile-size: 150
       maven-parallelism: '2'
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
       cpd-ignore-identifiers: false

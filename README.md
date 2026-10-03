@@ -222,11 +222,13 @@ The large case, and the one that needs both the clock and the heap.
 - **Jetty's duplication is not comparable with the other pages.** Two settings differ, both forced by
   this codebase. `cpd-ignore-identifiers` is `false`, so only clones that keep their names count:
   PMD's Java tokenizer crashes on this tree when it replaces identifiers
-  ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133)). And `cpd-minimum-tile-size` is `125`,
+  ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133)). And `cpd-minimum-tile-size` is `150`,
   not `100`: complete copy-paste detection ran out of the analysis heap with the index already
-  holding 6 GB, and fewer, longer clones take less to hold.
-- **10 GB of heap, not 8.** `maven-opts` is `-Xmx10g`, for the analysis, the language server and,
-  since `fork-maven-opts` is left empty, the forked build too.
+  holding 6 GB, and fewer, longer clones take less to hold — standalone PMD needed more than 6 GB
+  for this tree at 100, 5 GB at 125 and under 4 GB at 200.
+- **12 GB of heap, not 8.** `maven-opts` is `-Xmx12g`, for the analysis, the language server and,
+  since `fork-maven-opts` is left empty, the forked build too. 10 GB still ran out during copy-paste
+  detection.
 - **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
   snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
   failing test costs its own coverage rather than the commit.
