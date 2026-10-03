@@ -219,16 +219,14 @@ The large case, and the one that needs both the clock and the heap.
   is swapped. Unlike guava's `android/` tree, both are shipped code, so neither is excluded and the
   page reports the duplication as it stands. `jetty-ee8` is generated from `ee9` at build time and
   holds only 30 tracked `.java` files.
-- **Jetty's duplication is not comparable with the other pages.** Two settings differ, both forced by
-  this codebase. `cpd-ignore-identifiers` is `false`, so only clones that keep their names count:
-  PMD's Java tokenizer crashes on this tree when it replaces identifiers
-  ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133)). And `cpd-minimum-tile-size` is `150`,
-  not `100`: complete copy-paste detection ran out of the analysis heap with the index already
-  holding 6 GB, and fewer, longer clones take less to hold — standalone PMD needed more than 6 GB
-  for this tree at 100, 5 GB at 125 and under 4 GB at 200.
-- **12 GB of heap, not 8.** `maven-opts` is `-Xmx12g`, for the analysis, the language server and,
-  since `fork-maven-opts` is left empty, the forked build too. 10 GB still ran out during copy-paste
-  detection.
+- **No duplication figure for now.** `ignore-cpd` is `true`. Copy-paste detection runs after the
+  index is built, when the analysis already holds about 6 GB, and on a 16 GB runner it does not fit:
+  it ran out of an 8 GB heap, and of a 10 GB one at a tile size of 125, and at 12 GB it exhausted the
+  runner's memory and swap within a minute, which lost the runner. The settings it will need are
+  kept: `cpd-ignore-identifiers` is `false`, because PMD's Java tokenizer crashes on this tree when it
+  replaces identifiers ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133), fix pending in
+  [pmd/pmd#7138](https://github.com/pmd/pmd/pull/7138)), and `cpd-minimum-tile-size` is `150`.
+  Every other measure is unaffected, and the heap is back at the shared 8 GB.
 - **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
   snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
   failing test costs its own coverage rather than the commit.
@@ -272,6 +270,7 @@ policy, fixed on the action step, or an action default left alone.
 | `maven-user-properties` | *(none)* | `key=value` lines passed as `-Dkey=value`, for project-specific engine options. They do not reach the forked build; use `maven-opts` for a property the project's own build must see. |
 | `maven-parallelism` | `1C` | Maven `-T` for the per-commit build, one thread per runner core. The plugin hands it to the fork. Each concurrently built module may start its own test JVM, so lower it if a commit dies with exit 137. |
 | `ignore-coverage` | `false` | Skip tests. Faster, and produces no coverage data. |
+| `ignore-cpd` | `false` | Skip copy-paste detection, for a project whose CPD cannot fit on the runner. The page then has no duplication figure, and its notes must say why. |
 | `cpd-ignore-identifiers` | `true` | Match clones whose identifiers were renamed. `false` counts only clones that keep their names. |
 | `cpd-minimum-tile-size` | `100` | Shortest reported clone, in tokens. PMD-CPD's own default, and SonarQube's Java sensitivity; the engine's 64 reports shorter clones than either tool. A project may raise it when copy-paste detection cannot otherwise fit in memory, and its notes must say so. |
 

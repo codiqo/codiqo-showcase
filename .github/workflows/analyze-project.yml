@@ -125,6 +125,14 @@ on:
         required: false
         type: boolean
         default: true
+      ignore-cpd:
+        description: >-
+          Skip copy-paste detection entirely. A project's page then shows no duplication figure, and the
+          engine scores duplication neutral rather than clean. Only for a project whose copy-paste
+          detection cannot fit on the runner; say so in its notes.
+        required: false
+        type: boolean
+        default: false
       cpd-minimum-tile-size:
         description: >-
           Shortest clone copy-paste detection reports, in tokens. 100 is PMD-CPD's own default and the
@@ -223,6 +231,7 @@ jobs:
           maven-parallelism: ${{ inputs.maven-parallelism }}
           ignore-coverage: ${{ inputs.ignore-coverage }}
           cpd-ignore-identifiers: ${{ inputs.cpd-ignore-identifiers }}
+          ignore-cpd: ${{ inputs.ignore-cpd }}
           # PMD-CPD's own default of 100, and the same sensitivity SonarQube applies to Java at ten
           # duplicated lines. The engine defaults to 64 tokens, which is stricter than either: on ebean
           # that read as 20% of the codebase sitting inside a clone, true but shorter clones than the
