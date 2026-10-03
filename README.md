@@ -207,8 +207,7 @@ The large case, and the one that needs both the clock and the heap.
 - **Jetty's own build cache is switched off.** `.mvn/` enables `maven-build-cache-extension`, which
   would restore unchanged modules without running their tests: no coverage, no failure, and a green
   build. The fork does not inherit `-D` user properties, so `maven.build.cache.enabled=false`
-  travels in `fork-maven-opts`, the fork's `MAVEN_OPTS`, as a system property, which the extension
-  reads as a fallback.
+  travels in `maven-opts` as a system property, which the extension reads as a fallback.
 - **Two modules at a time, not `1C`.** Jetty's surefire `argLine` asks for `-Xms4g -Xmx6g` per
   test fork, and at `1C` up to four modules test at once on a hosted runner. The first run exhausted
   the runner's memory during the build of its first commit and the runner shut down with exit 143,
@@ -226,10 +225,8 @@ The large case, and the one that needs both the clock and the heap.
   ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133)). And `cpd-minimum-tile-size` is `125`,
   not `100`: complete copy-paste detection ran out of the analysis heap with the index already
   holding 6 GB, and fewer, longer clones take less to hold.
-- **The analysis gets 10 GB, the build keeps 8.** `maven-opts` is `-Xmx10g` for the analysis and the
-  language server, while `fork-maven-opts` keeps the forked build at `-Xmx8g`. The build has
-  finished before the analysis starts, but while it runs its own JVM shares the runner with two
-  test JVMs of up to 6 GB each.
+- **10 GB of heap, not 8.** `maven-opts` is `-Xmx10g`, for the analysis, the language server and,
+  since `fork-maven-opts` is left empty, the forked build too.
 - **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
   snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
   failing test costs its own coverage rather than the commit.
@@ -329,7 +326,7 @@ secrets redacted before upload.
 ├── analyze-project.yml    shared policy, workflow_call only, never triggered directly
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
 ├── project-ebean.yml      another, needing nothing but a different JDK
-├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off, split heaps
+├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
 ├── project-kryo.yml       a small reactor with one module that recompiles another's sources
 └── project-<slug>.yml     ... one file per project, added the same way
 ```

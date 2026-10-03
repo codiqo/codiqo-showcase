@@ -26,8 +26,8 @@
 # Jetty enables maven-build-cache-extension in .mvn/. On a runner that builds commit after commit
 # into one ~/.m2, it would restore every module whose inputs did not change without running its
 # tests, and those modules would reach the analysis with no coverage and no failure. The switch has
-# to travel in the fork's MAVEN_OPTS (fork-maven-opts below): the forked per-commit build does not
-# inherit -D user properties, but it does read system properties, and the extension falls back to those.
+# to travel in MAVEN_OPTS: the forked per-commit build does not inherit -D user properties, but it
+# does inherit the JVM's system properties, and the extension falls back to those.
 name: Jetty
 
 on:
@@ -68,12 +68,10 @@ jobs:
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       per-commit-timeout: '2h'
       build-timeout-minutes: '90'
-      # The analysis gets 10 GB and the build keeps 8. Complete copy-paste detection ran out of the
-      # shared 8 GB (run 37038127643): the index already held 6 GB when CPD began, and PMD's match
-      # collection needed more on top. The build has finished by then, so only the language server
-      # still competes. The build-cache switch now travels in fork-maven-opts, the fork's MAVEN_OPTS.
-      maven-opts: '-Xmx10g'
-      fork-maven-opts: '-Xmx8g -Dmaven.build.cache.enabled=false'
+      # 10 GB rather than the shared 8: complete copy-paste detection ran out of 8 GB (run
+      # 37038127643), with the index already holding 6 GB when CPD began. fork-maven-opts is left
+      # empty, so the forked build inherits this value, the build-cache switch included.
+      maven-opts: '-Xmx10g -Dmaven.build.cache.enabled=false'
       # 125 rather than the shared 100, the one setting that trades comparability for memory: fewer,
       # longer clones to hold. Jetty's duplication therefore counts clones of 125 tokens or more.
       cpd-minimum-tile-size: 125
