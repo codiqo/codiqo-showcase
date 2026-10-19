@@ -142,6 +142,15 @@ on:
         required: false
         type: number
         default: 100
+      jdt-lombok-agent:
+        description: >-
+          Attach lombok to the language server, so call hierarchy resolves the members lombok generates.
+          Off for a project that does not use lombok: the agent also widens every caller lookup to any
+          method of the same name, and on kryo that wider lookup reached a JDT failure that halted the
+          project.
+        required: false
+        type: boolean
+        default: true
     secrets:
       CODIQO_API_KEY:
         description: 'API key of the showcase organization the results belong to.'
@@ -237,6 +246,7 @@ jobs:
           # that read as 20% of the codebase sitting inside a clone, true but shorter clones than the
           # industry measures. A project may raise it, never lower it below what other tools report.
           cpd-minimum-tile-size: ${{ inputs.cpd-minimum-tile-size }}
+          jdt-lombok-agent: ${{ inputs.jdt-lombok-agent }}
           first-parent-only: true
           # ---------------------------------------------------------------- showcase policy
           # Fixed here rather than exposed as inputs: a project may not weaken any of it.

@@ -58,6 +58,8 @@ jobs:
       commit-window: ${{ inputs.commit-window || 'P3M' }}
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      # Neither project uses lombok, so the language server runs without its agent.
+      jdt-lombok-agent: false
       maven-user-properties: |
         codiqo.excludeProjects=com.esotericsoftware.kryo:kryo5
     secrets:
