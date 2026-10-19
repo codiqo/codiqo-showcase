@@ -60,7 +60,7 @@ jobs:
       commit-window: ${{ inputs.commit-window || 'P3M' }}
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
-      # Neither project uses lombok, so the language server runs without its agent.
+      # ebean does not use lombok, so the language server runs without its agent.
       jdt-lombok-agent: false
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_EBEAN }}
