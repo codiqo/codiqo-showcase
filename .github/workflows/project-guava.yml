@@ -1,11 +1,10 @@
 # Google Guava — https://github.com/google/guava
 #
-# One JDK, and it has to be 26. Three constraints meet at that number: codiqo-maven-plugin declares
-# requiredJavaVersion 25, so anything older makes Maven refuse to run the plugin at all; guava's
-# modules bind maven-toolchains-plugin with <jdk><version>26</version>, so compilation demands a 26
-# toolchain; and surefire selects ${surefire.toolchain.version}, which defaults to the Maven JVM's
-# own release. Installing 26 alone satisfies all three, since setup-java both sets JAVA_HOME and
-# registers the toolchain entry. Upstream CI runs Maven on 26 for the same reason.
+# One JDK, and it has to be 26. Two constraints meet at that number, both above the 21 that
+# codiqo-maven-plugin requires: guava's modules bind maven-toolchains-plugin with
+# <jdk><version>26</version>, so compilation demands a 26 toolchain; and surefire selects
+# ${surefire.toolchain.version}, which defaults to the Maven JVM's own release. Installing 26 alone
+# satisfies both, since setup-java both sets JAVA_HOME and registers the toolchain entry. Upstream CI runs Maven on 26 for the same reason.
 name: Guava
 
 on:

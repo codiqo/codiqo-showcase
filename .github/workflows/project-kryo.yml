@@ -3,9 +3,9 @@
 # The small case: three modules, 77 main sources and 337 tests. A full `verify` with -T 1C took about
 # twenty seconds on a workstation, so every shared default fits with room to spare.
 #
-# JDK 25, the floor rather than a preference. Kryo compiles its main sources for Java 8 and upstream
-# CI builds on 11, then tests on every LTS through 25 and on 27. codiqo-maven-plugin declares
-# requiredJavaVersion 25, and 25 is one of the JDKs upstream already tests on. A full build on
+# JDK 25, chosen when 25 was codiqo-maven-plugin's floor; the plugin now requires 21. Kryo compiles
+# its main sources for Java 8 and upstream CI builds on 11, then tests on every LTS through 25 and on
+# 27, so 25 is one of the JDKs upstream already tests on. A full build on
 # Temurin 25 was run locally before wiring this up: 337 tests, no failures. Kryo pins no toolchain,
 # so one entry covers the build, the tests and the language server. The jdk11ge and jdk17ge profiles
 # activate on the JDK, which adds test-jdk11/ and test-jdk17/ to the test sources, so the records

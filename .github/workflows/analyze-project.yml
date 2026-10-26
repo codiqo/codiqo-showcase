@@ -31,8 +31,8 @@ on:
           into ~/.m2/toolchains.xml, which is what a project pinning a toolchain needs in order to
           build here; the LAST entry becomes JAVA_HOME and so runs Maven, the language server and
           the tests. List every version the project's toolchains ask for, including the one Maven
-          itself should run on — and that last one must be 25 or newer, because codiqo-maven-plugin
-          declares requiredJavaVersion 25 and Maven refuses to execute a plugin it cannot satisfy.
+          itself should run on — and that last one must be 21 or newer, because codiqo-maven-plugin
+          declares requiredJavaVersion 21 and Maven refuses to execute a plugin it cannot satisfy.
         required: false
         type: string
         default: |
@@ -203,7 +203,7 @@ jobs:
 
       # Installs every listed JDK and registers all of them in ~/.m2/toolchains.xml, which is what
       # a project pinning a toolchain (guava compiles against JDK 26) needs in order to build here.
-      # The last entry runs Maven, so it must satisfy codiqo-maven-plugin's requiredJavaVersion of 25.
+      # The last entry runs Maven, so it must satisfy codiqo-maven-plugin's requiredJavaVersion of 21.
       # The Codiqo action's own JDK setup is disabled below so this one stands.
       - name: Set up JDKs
         uses: actions/setup-java@v5

@@ -1,10 +1,10 @@
 # Ebean ORM — https://github.com/ebean-orm/ebean
 #
-# JDK 25, which is the floor rather than a preference. Ebean compiles to release 11 and upstream CI
-# tests on 21 alone, but codiqo-maven-plugin declares requiredJavaVersion 25, so Maven has to run on
-# at least that. Both 25 and 26 still accept --release 11 — checked with javac before wiring this up
-# — and 25 is the closest supported JDK to what upstream actually exercises. Ebean pins no toolchain
-# of its own, so one entry covers the build, the tests and the language server.
+# JDK 25, chosen when 25 was codiqo-maven-plugin's floor. Ebean compiles to release 11 and upstream
+# CI tests on 21 alone. The plugin now requires only 21, so this could follow upstream; it stays on
+# 25 because that is the JDK this workflow has been verified on, and 25 still accepts --release 11 —
+# checked with javac before wiring this up. Ebean pins no toolchain of its own, so one entry covers
+# the build, the tests and the language server.
 #
 # Five modules start Docker containers through ebean-test: postgis on 9432, pgvector on 8432, and a
 # shared fixed-name redis that ebean-redis and ebean-redisson deliberately keep alive across a

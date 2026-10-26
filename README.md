@@ -74,17 +74,20 @@ excluded after a single attempt.
 This is the common case, and it does not need anything from this repository. Your own repository is
 the one being measured, so there is no second checkout and no reusable workflow.
 
-1. Get an API key at [codiqo.io](https://codiqo.io) and add it as the repository secret
-   `CODIQO_API_KEY`.
+1. Get an API key at [codiqo.io](https://codiqo.io) and add it as the secret `CODIQO_API_KEY` — a
+   repository secret, or an organization secret granted to this repository.
 2. Commit the workflow below as `.github/workflows/codiqo.yml`.
-3. Run it once from the Actions tab and confirm the summary reports a non-zero caller count.
+3. Run it once from the Actions tab and confirm the analysis in Codiqo reports a non-zero caller
+   count.
 
 ```yaml
 name: Codiqo
 
 on:
+  push:
+    branches: [main]              # your default branch
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '23 4,16 * * *'       # a safety run; give each repository its own minute
   workflow_dispatch:
 
 permissions:
@@ -97,7 +100,7 @@ concurrency:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         with:
@@ -107,12 +110,13 @@ jobs:
       - uses: codiqo/codiqo-action@main
         with:
           api-key: ${{ secrets.CODIQO_API_KEY }}
-          # 25 or newer: the plugin declares requiredJavaVersion 25, and Maven refuses to run a
+          # 21 or newer: the plugin declares requiredJavaVersion 21, and Maven refuses to run a
           # plugin whose prerequisite it cannot meet. It must also be able to build your project.
-          java-version: '26'
+          java-version: '21'
 ```
 
-Every other option is documented in [`codiqo/codiqo-action`](https://github.com/codiqo/codiqo-action).
+Every other option is documented in [`codiqo/codiqo-action`](https://github.com/codiqo/codiqo-action),
+along with [rolling it out across an organization](https://github.com/codiqo/codiqo-action#rolling-out-across-an-organization).
 
 ## Add a project to this showcase
 
@@ -150,10 +154,10 @@ only. No fork and no pull request can reach a secret.
 
 A worked example of what per-project tuning looks like, and why each line exists.
 
-- **One JDK, and it has to be 26.** Three constraints meet at that number: `codiqo-maven-plugin`
-  declares `requiredJavaVersion` 25, guava's modules bind `maven-toolchains-plugin` at JDK 26, and
+- **One JDK, and it has to be 26.** Two constraints meet at that number, both above the 21
+  `codiqo-maven-plugin` requires: guava's modules bind `maven-toolchains-plugin` at JDK 26, and
   surefire selects `${surefire.toolchain.version}`, which defaults to the Maven JVM's own release.
-  Installing `26` alone satisfies all three, because `setup-java` both sets `JAVA_HOME` and registers
+  Installing `26` alone satisfies both, because `setup-java` both sets `JAVA_HOME` and registers
   the toolchain entry. Upstream CI runs Maven on 26 for the same reason.
 - **The `android/` mirror is excluded.** It is a file-for-file copy of guava's sources, 1,572 of
   3,227 tracked `.java` files. Copy-paste detection reads the indexed file set, so without the
@@ -175,10 +179,10 @@ A worked example of what per-project tuning looks like, and why each line exists
 
 The contrasting case: a project that needs almost nothing.
 
-- **JDK 25, the floor rather than a preference.** Ebean compiles to release 11 and upstream CI tests
-  on 21 alone, but the plugin's `requiredJavaVersion` is 25. Both 25 and 26 still accept
-  `--release 11`, so 25 is the closest supported JDK to what upstream exercises. No toolchain is
-  pinned, so one entry covers everything.
+- **JDK 25, chosen when it was the plugin's floor.** Ebean compiles to release 11 and upstream CI
+  tests on 21 alone. The plugin's `requiredJavaVersion` is now 21, so the workflow could follow
+  upstream; it stays on 25, the JDK it has been verified on, which still accepts `--release 11`. No
+  toolchain is pinned, so one entry covers everything.
 - **Docker is part of the build.** Five modules start containers through `ebean-test` — postgis,
   pgvector and a shared redis. A hosted runner provides it, and the image pulls are paid once per
   run rather than once per commit.
@@ -235,9 +239,9 @@ The large case, and the one that needs both the clock and the heap.
 
 The small case, and the one whose only trap is a module that builds the same sources twice.
 
-- **JDK 25, the floor rather than a preference.** Kryo compiles its main sources for Java 8, builds
-  upstream on 11 and tests on every LTS through 25 and on 27. The plugin's `requiredJavaVersion` is
-  25, which upstream already tests on. A full local build on Temurin 25 passed all 337 tests in about
+- **JDK 25, chosen when it was the plugin's floor** (the plugin now requires 21). Kryo compiles its
+  main sources for Java 8, builds upstream on 11 and tests on every LTS through 25 and on 27, so 25
+  is one upstream already tests on. A full local build on Temurin 25 passed all 337 tests in about
   twenty seconds. No toolchain is pinned, so one entry covers everything.
 - **`kryo5` is excluded as a module.** `main-versioned/` declares the same `src/` and `test/`
   directories as `main/` and shades the result into `com.esotericsoftware.kryo.kryo5`. The local
@@ -260,7 +264,7 @@ policy, fixed on the action step, or an action default left alone.
 | `target-repo` | *required* | Repository to analyse, as `owner/name`. |
 | `target-ref` | default branch | Ref to analyse. Must name a branch. |
 | `showcase-slug` | *required* | Public page slug, also the concurrency key. |
-| `jdks` | `26` | JDKs to install, one per line. All become toolchain entries; the **last** runs Maven, the tests and the language server, so it must be **25 or newer** — `codiqo-maven-plugin` declares `requiredJavaVersion` 25. |
+| `jdks` | `26` | JDKs to install, one per line. All become toolchain entries; the **last** runs Maven, the tests and the language server, so it must be **21 or newer** — `codiqo-maven-plugin` declares `requiredJavaVersion` 21. |
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
@@ -310,7 +314,7 @@ Two consequences worth internalising before the first run:
 |---|---|---|
 | Summary reports zero commits pending | Shallow clone: Codiqo skips any commit whose parent is missing locally | `fetch-depth: 0` on the checkout |
 | Analysis completes, every caller count is zero | The language server never imported the project | Read the import log in the run artifact. `fail-on-jdtls-error: true` turns this into a red run rather than a quiet zero |
-| `The plugin ... has unmet prerequisites: Required Java version 25` | The JDK running Maven is older than the plugin allows | Make the **last** entry in `jdks` 25 or newer |
+| `The plugin ... has unmet prerequisites: Required Java version 21` | The JDK running Maven is older than the plugin allows | Make the **last** entry in `jdks` 21 or newer |
 | Build fails with no toolchain found for a JDK | The project pins a toolchain the runner does not have | List every version the project asks for in `jdks`, Maven's own last |
 | Killed during copy-paste detection at very high heap | The repository mirrors its own sources, so the tree matches against its copy | `maven-user-properties: codiqo.excludePaths=<tree>/**` |
 | Commit killed with exit 137, or the job ends with exit 143 and "The runner has received a shutdown signal" | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
