@@ -16,8 +16,9 @@ can be traced back to the run that produced it.
 | [ebean-orm/ebean](https://github.com/ebean-orm/ebean) | [`project-ebean.yml`](.github/workflows/project-ebean.yml) | [codiqo.io/showcase/ebean](https://codiqo.io/showcase/ebean) |
 | [jetty/jetty.project](https://github.com/jetty/jetty.project) | [`project-jetty.yml`](.github/workflows/project-jetty.yml) | [codiqo.io/showcase/jetty](https://codiqo.io/showcase/jetty) |
 | [EsotericSoftware/kryo](https://github.com/EsotericSoftware/kryo) | [`project-kryo.yml`](.github/workflows/project-kryo.yml) | [codiqo.io/showcase/kryo](https://codiqo.io/showcase/kryo) |
+| [spring-projects/spring-kafka](https://github.com/spring-projects/spring-kafka) | [`project-spring-kafka.yml`](.github/workflows/project-spring-kafka.yml) | [codiqo.io/showcase/spring-kafka](https://codiqo.io/showcase/spring-kafka) |
 
-**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Project notes: kryo](#project-notes-kryo) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
+**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Project notes: kryo](#project-notes-kryo) · [Project notes: spring-kafka](#project-notes-spring-kafka) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
 
 ---
 
@@ -254,6 +255,18 @@ The small case, and the one whose only trap is a module that builds the same sou
   the `-Xmx8g` heap all have ample room. Dependabot accounts for 9 of the 43 first-parent commits in
   the last three months, and the bot filter keeps them off the page.
 
+## Project notes: spring-kafka
+
+The Gradle case, chosen for its contributors rather than its build.
+
+- **Many people, not one.** 131 human commits from 35 authors in 90 days, 12 of them with three or
+  more. Guava's busiest identity holds 99 of 143.
+- **JDK 25**, which the build pins as its toolchain.
+- **Per-test timeout off.** `@EmbeddedKafka` keeps its broker in a ThreadLocal, which a test run on
+  JUnit's timeout thread does not see.
+- **Build cache off.** `gradle.properties` turns `org.gradle.caching` on, which would restore unchanged
+  Test tasks without coverage; `analyze-project.yml` passes `--no-build-cache` to every Gradle project.
+
 ## Reusable workflow reference
 
 `analyze-project.yml` exposes only what a project genuinely varies. Everything else is either showcase
@@ -264,10 +277,12 @@ policy, fixed on the action step, or an action default left alone.
 | `target-repo` | *required* | Repository to analyse, as `owner/name`. |
 | `target-ref` | default branch | Ref to analyse. Must name a branch. |
 | `showcase-slug` | *required* | Public page slug, also the concurrency key. |
+| `build-tool` | `maven` | `maven` or `gradle`. Under `gradle` the last JDK runs the project's wrapper. |
 | `jdks` | `26` | JDKs to install, one per line. All become toolchain entries; the **last** runs Maven, the tests and the language server, so it must be **21 or newer** — `codiqo-maven-plugin` declares `requiredJavaVersion` 21. |
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
+| `per-test-timeout` | `15m` | Limit for one JUnit 5 test method. `off` for tests that read a ThreadLocal an extension set. |
 | `build-timeout-minutes` | `45` | Deadline for the forked build of one commit, tests included. It has to fire before `per-commit-timeout`, so the action clamps it to three quarters of that. |
 | `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. The language server copies its `-Xmx`, and the forked build inherits it unless `fork-maven-opts` is set, so it is not the only claim on the runner. |
 | `fork-maven-opts` | *(empty: inherits `maven-opts`)* | `MAVEN_OPTS` for the forked build alone, for a project whose analysis needs more heap than its build. It replaces `maven-opts` for the fork whole, so repeat any `-D` the project's build relies on. |
@@ -288,6 +303,7 @@ Fixed as policy, and deliberately not configurable per project:
 | `log-commit-authors` | `false` | Logs on a public repository are public. |
 | `exclude-author-emails` | `*[bot]@*` | A showcase measures human work. Narrower than the engine's `*bot*` on purpose: it catches GitHub app identities without catching a human whose address merely contains the word — guava's Google-internal changes are exported under such an address. |
 | `persist-credentials` | `false` | The analysed project's own build runs over that checkout. |
+| `gradle-args` | `--no-build-cache` | Gradle only. A cached Test task runs no tests and reports no coverage. |
 
 ## What bounds a run
 
@@ -333,6 +349,7 @@ secrets redacted before upload.
 ├── project-ebean.yml      another, needing nothing but a different JDK
 ├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
 ├── project-kryo.yml       a small reactor with one module that recompiles another's sources
+├── project-spring-kafka.yml  a Gradle build
 └── project-<slug>.yml     ... one file per project, added the same way
 ```
 
