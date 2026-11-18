@@ -1,0 +1,56 @@
+# Spring for Apache Kafka — https://github.com/spring-projects/spring-kafka
+#
+# The Gradle case, chosen for its contributors: 131 human commits from 35 authors in the 90 days
+# before it was wired up, 12 of them with three or more. Guava's busiest identity holds 99 of 143.
+#
+# JDK 25: build.gradle pins the compile toolchain and the test launcher to 25, and Gradle takes the
+# JDK it runs on as that toolchain, so one entry covers the build, the tests and the language server.
+#
+# per-test-timeout is off: @EmbeddedKafka keeps its broker in a ThreadLocal, and tests that read it
+# fail on a null broker when JUnit runs them on a timeout thread. The task timeout still bounds a hang.
+#
+# Time and memory per commit are not measured yet. The tests start embedded brokers in-process, so
+# no Docker is needed.
+name: Spring Kafka
+
+on:
+  schedule:
+    # Daily, offset from kryo's 02:11, guava's 03:17, ebean's 04:43 and jetty's six-hourly :29.
+    - cron: '53 5 * * *'
+  workflow_dispatch:
+    inputs:
+      max-commits-per-run:
+        description: 'Commits to analyse. Empty takes every pending commit; 1 is the cautious first-run value.'
+        required: false
+        type: string
+        default: ''
+      commit-window:
+        description: 'How far back to look (ISO-8601 period)'
+        required: false
+        type: string
+        default: 'P3M'
+      ignore-coverage:
+        description: 'Skip coverage. Under Gradle the tests still run.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # On `schedule` the inputs context is empty, so every value below resolves to its unset form.
+  analyze:
+    uses: ./.github/workflows/analyze-project.yml
+    with:
+      target-repo: spring-projects/spring-kafka
+      showcase-slug: spring-kafka
+      build-tool: gradle
+      jdks: |
+        25
+      commit-window: ${{ inputs.commit-window || 'P3M' }}
+      max-commits-per-run: ${{ inputs.max-commits-per-run }}
+      ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      per-test-timeout: 'off'
+    secrets:
+      CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_SPRING_KAFKA }}
