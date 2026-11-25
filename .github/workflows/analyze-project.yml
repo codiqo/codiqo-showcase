@@ -169,15 +169,9 @@ on:
         description: >-
           Comma-separated author emails excluded on top of the bot policy fixed on the action step: a
           project's release automation that commits as an ordinary account, which the [bot] filter
-          does not see. It only adds to that policy, never replaces it.
-        required: false
-        type: string
-        default: ''
-      gradle-init-script:
-        description: >-
-          Text of a Gradle init script applied to every Gradle invocation of the run, each commit's
-          build included. Only for what a commit's build expects from its environment and a public
-          runner lacks, never to change what the project's own code does. Gradle only.
+          does not see. It only adds to that policy, never replaces it. Every entry is a
+          case-insensitive wildcard pattern, so name the account in full: a pattern such as
+          *@example.org would exclude every human at that domain too.
         required: false
         type: string
         default: ''
@@ -252,18 +246,6 @@ jobs:
           cat ~/.m2/toolchains.xml \
             || echo "no ~/.m2/toolchains.xml — projects pinning a JDK toolchain will fail to build"
 
-      # An init script, not an edit of the checkout: every commit is built from its own tree, so a
-      # change to the tracked build files would have to be made again for each one.
-      - name: Write the Gradle init script
-        id: init-script
-        if: inputs.gradle-init-script != ''
-        env:
-          INIT_SCRIPT: ${{ inputs.gradle-init-script }}
-        run: |
-          path="$RUNNER_TEMP/showcase-init.gradle"
-          printf '%s\n' "$INIT_SCRIPT" > "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
-
       - id: codiqo
         uses: codiqo/codiqo-action@main
         with:
@@ -303,8 +285,9 @@ jobs:
           # identities (dependabot[bot]@...) while leaving addresses that merely contain the word.
           # That distinction matters here — guava's Google-internal changes are exported under
           # java-team-github-bot@google.com, and the work behind them is human. The filter runs at
-          # index time, so anything it rejects is never indexed and never scored. A project adds
-          # its release automation through extra-excluded-author-emails, after this pattern.
+          # index time: a commit it rejects is indexed as excluded and never built or scored. A
+          # project adds its release automation through extra-excluded-author-emails, after this
+          # pattern.
           exclude-author-emails: ${{ inputs.extra-excluded-author-emails != '' && format('*[bot]@*,{0}', inputs.extra-excluded-author-emails) || '*[bot]@*' }}
           # ON, unlike the action's default, and deliberately: an import that fails leaves every
           # caller count at zero, which is indistinguishable from "this code has no callers" once
@@ -322,12 +305,8 @@ jobs:
           log-commit-authors: false
           # Gradle only. With org.gradle.caching on (spring-kafka sets it), an unchanged Test task is
           # restored from the cache: no tests, no coverage, a green build. Jetty's Maven cache is the
-          # same trap. A project's init script follows it; the action skips the two lines when there
-          # is none.
-          gradle-args: |
-            --no-build-cache
-            ${{ steps.init-script.outputs.path && '--init-script' || '' }}
-            ${{ steps.init-script.outputs.path }}
+          # same trap.
+          gradle-args: --no-build-cache
           # Names the artifact after the project, so a log download is unambiguous.
           log-artifact-name: codiqo-logs-${{ inputs.showcase-slug }}
 

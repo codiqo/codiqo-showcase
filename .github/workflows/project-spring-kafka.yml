@@ -52,28 +52,5 @@ jobs:
       # policy misses it: its commits switch dependency trains, prepare and cut releases, and set the
       # next development version.
       extra-excluded-author-emails: builds@springframework.org
-      # Before each release main pins the next train's BOMs as *-INTERNAL-SNAPSHOT, which only Spring's
-      # commercial Artifactory serves (401 without a subscription), and a developer's commit can land
-      # inside that window. The public snapshot repository holds the same trains as -SNAPSHOT. The
-      # build's own modules carry the same suffix, so they are left alone and stay project dependencies.
-      gradle-init-script: |
-        allprojects {
-            repositories {
-                maven {
-                    url = 'https://repo.spring.io/snapshot'
-                    mavenContent { snapshotsOnly() }
-                }
-            }
-            configurations.configureEach {
-                resolutionStrategy.eachDependency { details ->
-                    String version = details.requested.version
-                    boolean ownModule = rootProject.allprojects.any { it.group == details.requested.group && it.name == details.requested.name }
-                    if (version?.endsWith('-INTERNAL-SNAPSHOT') && !ownModule) {
-                        details.useVersion(version.replace('-INTERNAL-SNAPSHOT', '-SNAPSHOT'))
-                        details.because("Spring's INTERNAL-SNAPSHOT builds are only in its commercial repository")
-                    }
-                }
-            }
-        }
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_SPRING_KAFKA }}

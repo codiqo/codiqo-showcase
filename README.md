@@ -266,10 +266,10 @@ The Gradle case, chosen for its contributors rather than its build.
   Test tasks without coverage; `analyze-project.yml` passes `--no-build-cache` to every Gradle project.
 - **Release automation excluded.** Spring's release commits are made by `builds@springframework.org`,
   an ordinary account the `[bot]` filter does not catch, so the workflow adds it to the excluded authors.
-- **Release windows build against public snapshots.** Before each release, main pins the next train's
-  BOMs as `*-INTERNAL-SNAPSHOT`, which only Spring's commercial repository serves. A developer's commit
-  landing in that window would not build here, so an init script resolves the public `-SNAPSHOT` of
-  the same train instead, leaving the build's own modules alone.
+- **Release windows are not scored.** Before each release, main pins the next train's BOMs as
+  `*-INTERNAL-SNAPSHOT`, which only Spring's commercial repository serves. A developer's commit that
+  lands in that window cannot build here, and is excluded as a dependency resolution failure rather
+  than scored as a broken build.
 
 ## Reusable workflow reference
 
@@ -296,8 +296,7 @@ policy, fixed on the action step, or an action default left alone.
 | `ignore-cpd` | `false` | Skip copy-paste detection, for a project whose CPD cannot fit on the runner. The page then has no duplication figure, and its notes must say why. |
 | `cpd-ignore-identifiers` | `true` | Match clones whose identifiers were renamed. `false` counts only clones that keep their names. |
 | `cpd-minimum-tile-size` | `100` | Shortest reported clone, in tokens. PMD-CPD's own default, and SonarQube's Java sensitivity; the engine's 64 reports shorter clones than either tool. A project may raise it when copy-paste detection cannot otherwise fit in memory, and its notes must say so. |
-| `extra-excluded-author-emails` | *(none)* | Comma-separated author emails excluded on top of the bot policy, for release automation that commits as an ordinary account. It can only add to the policy. |
-| `gradle-init-script` | *(none)* | Text of a Gradle init script applied to every Gradle invocation, each commit's build included. Only for what a build expects from its environment, never to change the project's code. Gradle only. |
+| `extra-excluded-author-emails` | *(none)* | Comma-separated author emails excluded on top of the bot policy, for release automation that commits as an ordinary account. It can only add to the policy. Each entry is a case-insensitive wildcard, so name the account in full: `*@example.org` would exclude every human at that domain too. |
 
 Fixed as policy, and deliberately not configurable per project:
 
@@ -309,7 +308,7 @@ Fixed as policy, and deliberately not configurable per project:
 | `log-commit-authors` | `false` | Logs on a public repository are public. |
 | `exclude-author-emails` | `*[bot]@*` | A showcase measures human work. Narrower than the engine's `*bot*` on purpose: it catches GitHub app identities without catching a human whose address merely contains the word — guava's Google-internal changes are exported under such an address. A project's `extra-excluded-author-emails` are added after it. |
 | `persist-credentials` | `false` | The analysed project's own build runs over that checkout. |
-| `gradle-args` | `--no-build-cache` | Gradle only. A cached Test task runs no tests and reports no coverage. A project's `gradle-init-script` is passed after it as `--init-script`. |
+| `gradle-args` | `--no-build-cache` | Gradle only. A cached Test task runs no tests and reports no coverage. |
 
 ## What bounds a run
 
