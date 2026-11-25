@@ -6,9 +6,6 @@
 # JDK 25: build.gradle pins the compile toolchain and the test launcher to 25, and Gradle takes the
 # JDK it runs on as that toolchain, so one entry covers the build, the tests and the language server.
 #
-# per-test-timeout is off: @EmbeddedKafka keeps its broker in a ThreadLocal, and tests that read it
-# fail on a null broker when JUnit runs them on a timeout thread. The task timeout still bounds a hang.
-#
 # Time and memory per commit are not measured yet. The tests start embedded brokers in-process, so
 # no Docker is needed.
 name: Spring Kafka
@@ -51,6 +48,5 @@ jobs:
       commit-window: ${{ inputs.commit-window || 'P3M' }}
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
-      per-test-timeout: 'off'
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_SPRING_KAFKA }}

@@ -262,8 +262,6 @@ The Gradle case, chosen for its contributors rather than its build.
 - **Many people, not one.** 131 human commits from 35 authors in 90 days, 12 of them with three or
   more. Guava's busiest identity holds 99 of 143.
 - **JDK 25**, which the build pins as its toolchain.
-- **Per-test timeout off.** `@EmbeddedKafka` keeps its broker in a ThreadLocal, which a test run on
-  JUnit's timeout thread does not see.
 - **Build cache off.** `gradle.properties` turns `org.gradle.caching` on, which would restore unchanged
   Test tasks without coverage; `analyze-project.yml` passes `--no-build-cache` to every Gradle project.
 
@@ -282,7 +280,7 @@ policy, fixed on the action step, or an action default left alone.
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
 | `max-commits-per-run` | *(empty: unbounded)* | Cap on commits per run. Empty takes every pending commit, oldest first. |
 | `per-commit-timeout` | `1h` | Deadline for one commit, build and analysis together. |
-| `per-test-timeout` | `15m` | Limit for one JUnit 5 test method. `off` for tests that read a ThreadLocal an extension set. |
+| `per-test-timeout` | `15m` | Limit for one JUnit 5 test or lifecycle method, interrupted on the test's own thread. `off` disables it. |
 | `build-timeout-minutes` | `45` | Deadline for the forked build of one commit, tests included. It has to fire before `per-commit-timeout`, so the action clamps it to three quarters of that. |
 | `maven-opts` | `-Xmx8g` | Heap for the analysis. The default 25 % of runner RAM — 4 GB — is not enough: guava's diagnostics stage alone peaked at 5 GB. The language server copies its `-Xmx`, and the forked build inherits it unless `fork-maven-opts` is set, so it is not the only claim on the runner. |
 | `fork-maven-opts` | *(empty: inherits `maven-opts`)* | `MAVEN_OPTS` for the forked build alone, for a project whose analysis needs more heap than its build. It replaces `maven-opts` for the fork whole, so repeat any `-D` the project's build relies on. |
