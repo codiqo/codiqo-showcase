@@ -70,8 +70,8 @@ on:
         default: '1h'
       per-test-timeout:
         description: >-
-          Limit for one JUnit 5 test method, run on a thread of its own. "off" for a project whose tests
-          read a ThreadLocal an extension set, which that thread does not see.
+          Limit for one JUnit 5 test or lifecycle method, interrupted on the test's own thread. "off"
+          disables it.
         required: false
         type: string
         default: '15m'
