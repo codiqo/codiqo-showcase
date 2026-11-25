@@ -165,6 +165,16 @@ on:
         required: false
         type: boolean
         default: true
+      extra-excluded-author-emails:
+        description: >-
+          Comma-separated author emails excluded on top of the bot policy fixed on the action step: a
+          project's release automation that commits as an ordinary account, which the [bot] filter
+          does not see. It only adds to that policy, never replaces it. Every entry is a
+          case-insensitive wildcard pattern, so name the account in full: a pattern such as
+          *@example.org would exclude every human at that domain too.
+        required: false
+        type: string
+        default: ''
     secrets:
       CODIQO_API_KEY:
         description: 'API key of the showcase organization the results belong to.'
@@ -275,8 +285,10 @@ jobs:
           # identities (dependabot[bot]@...) while leaving addresses that merely contain the word.
           # That distinction matters here — guava's Google-internal changes are exported under
           # java-team-github-bot@google.com, and the work behind them is human. The filter runs at
-          # index time, so anything it rejects is never indexed and never scored.
-          exclude-author-emails: '*[bot]@*'
+          # index time: a commit it rejects is indexed as excluded and never built or scored. A
+          # project adds its release automation through extra-excluded-author-emails, after this
+          # pattern.
+          exclude-author-emails: ${{ inputs.extra-excluded-author-emails != '' && format('*[bot]@*,{0}', inputs.extra-excluded-author-emails) || '*[bot]@*' }}
           # ON, unlike the action's default, and deliberately: an import that fails leaves every
           # caller count at zero, which is indistinguishable from "this code has no callers" once
           # stored. A red run is recoverable; a public page asserting a blast radius of zero is not.

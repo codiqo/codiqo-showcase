@@ -48,5 +48,9 @@ jobs:
       commit-window: ${{ inputs.commit-window || 'P3M' }}
       max-commits-per-run: ${{ inputs.max-commits-per-run }}
       ignore-coverage: ${{ inputs.ignore-coverage || false }}
+      # Spring's release automation commits as an ordinary account, not a GitHub app, so the [bot]
+      # policy misses it: its commits switch dependency trains, prepare and cut releases, and set the
+      # next development version.
+      extra-excluded-author-emails: builds@springframework.org
     secrets:
       CODIQO_API_KEY: ${{ secrets.CODIQO_API_KEY_SPRING_KAFKA }}
