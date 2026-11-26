@@ -304,8 +304,7 @@ jobs:
           # which is the same rule the showcase pages follow.
           log-commit-authors: false
           # Gradle only. With org.gradle.caching on (spring-kafka sets it), an unchanged Test task is
-          # restored from the cache: no tests, no coverage, a green build. Jetty's Maven cache is the
-          # same trap.
+          # restored from the cache: no tests, no coverage, a green build.
           gradle-args: --no-build-cache
           # Names the artifact after the project, so a log download is unambiguous.
           log-artifact-name: codiqo-logs-${{ inputs.showcase-slug }}

@@ -12,7 +12,7 @@ name: Spring Kafka
 
 on:
   schedule:
-    # Daily, offset from kryo's 02:11, guava's 03:17, ebean's 04:43 and jetty's six-hourly :29.
+    # Daily, offset from kryo's 02:11, guava's 03:17 and ebean's 04:43.
     - cron: '53 5 * * *'
   workflow_dispatch:
     inputs:
@@ -41,7 +41,7 @@ jobs:
     uses: ./.github/workflows/analyze-project.yml
     with:
       target-repo: spring-projects/spring-kafka
-      showcase-slug: spring-kafka
+      showcase-slug: spring
       build-tool: gradle
       jdks: |
         25
