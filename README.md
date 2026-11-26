@@ -138,8 +138,9 @@ project, `analyze-project.yml` holding everything they share — and change four
 
 Then:
 
-1. Create a Codiqo organization for the project, and add its key as a repository secret. One key per
-   project keeps a mistake in one workflow away from every other page.
+1. Create a Codiqo organization for the project, or reuse the one that holds its family (every Spring
+   project goes into `spring`, with `project:` naming it), and add a key of its own as a repository
+   secret. One key per project keeps a mistake in one workflow away from every other page.
 2. Dispatch the workflow from the Actions tab with `max-commits-per-run: 1` and
    `ignore-coverage: true`. That proves the wiring in one build rather than a hundred.
 3. Confirm the analysis reports a **non-zero caller count**. Zero callers means the language server
@@ -239,7 +240,8 @@ policy, fixed on the action step, or an action default left alone.
 |---|---|---|
 | `target-repo` | *required* | Repository to analyse, as `owner/name`. |
 | `target-ref` | default branch | Ref to analyse. Must name a branch. |
-| `showcase-slug` | *required* | Public page slug, also the concurrency key. |
+| `showcase-slug` | *required* | The Codiqo organization's slug, whose public page the run summary links. |
+| `project` | `showcase-slug` | Short name of the project, which keys the concurrency group and names the log artifact. Set it when the organization holds several projects, as `spring` does. |
 | `build-tool` | `maven` | `maven` or `gradle`. Under `gradle` the last JDK runs the project's wrapper. |
 | `jdks` | `26` | JDKs to install, one per line. All become toolchain entries; the **last** runs Maven, the tests and the language server, so it must be **21 or newer** — `codiqo-maven-plugin` declares `requiredJavaVersion` 21. |
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
@@ -302,7 +304,7 @@ Two consequences worth internalising before the first run:
 | Everything appears pending again | The commit index is keyed by branch name | `analyze-project.yml` reads the branch from the checkout, so the analysed repository's name is used rather than this repository's |
 | Green Maven builds, coverage zero on unchanged modules | The project's `.mvn/extensions.xml` enables `maven-build-cache-extension`, which restores a module without running its tests | `maven-opts: -Dmaven.build.cache.enabled=false`. It must be a system property in `maven-opts`: the forked build does not inherit `-D` user properties, and the extension reads the system property as its fallback |
 
-Logs for every run are uploaded as an artifact named `codiqo-logs-<slug>`, kept for seven days, with
+Logs for every run are uploaded as an artifact named `codiqo-logs-<project>`, kept for seven days, with
 secrets redacted before upload.
 
 ## Repository layout

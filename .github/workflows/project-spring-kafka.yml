@@ -42,6 +42,8 @@ jobs:
     with:
       target-repo: spring-projects/spring-kafka
       showcase-slug: spring
+      # The spring organization holds every Spring project, so this one names its own runs and logs.
+      project: spring-kafka
       build-tool: gradle
       jdks: |
         25
