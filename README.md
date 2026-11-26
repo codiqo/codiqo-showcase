@@ -121,12 +121,13 @@ along with [rolling it out across an organization](https://github.com/codiqo/cod
 ## Add a project to this showcase
 
 Use this path only for measuring a repository you do not own, publicly. Copy
-[`project-guava.yml`](.github/workflows/project-guava.yml) to `project-<slug>.yml` — one file per
+[`project-guava.yml`](.github/workflows/project-guava.yml) to `project-<project>.yml` — one file per
 project, `analyze-project.yml` holding everything they share — and change four things:
 
 ```yaml
       target-repo: apache/commons-lang     # the repository to analyse
       showcase-slug: commons-lang          # the Codiqo organization's slug: its page under codiqo.io/showcase/
+      project: commons-lang                # names this project's runs and logs; letters, digits and dashes
       jdks: |                              # every toolchain version the project asks for;
         26                                 # the one running Maven goes last, and must be 25+
 ```
@@ -139,8 +140,10 @@ project, `analyze-project.yml` holding everything they share — and change four
 Then:
 
 1. Create a Codiqo organization for the project, or reuse the one that holds its family (every Spring
-   project goes into `spring`, with `project:` naming it), and add a key of its own as a repository
-   secret. One key per project keeps a mistake in one workflow away from every other page.
+   project goes into `spring`), and add a key for it as a repository secret. The Codiqo project is the
+   one the build's own coordinates name; `project:` only names the workflow's runs and logs. A key
+   reaches its whole organization, so a key of its own keeps a mistake in one workflow away from
+   another organization's page, but not from a project that shares the organization.
 2. Dispatch the workflow from the Actions tab with `max-commits-per-run: 1` and
    `ignore-coverage: true`. That proves the wiring in one build rather than a hundred.
 3. Confirm the analysis reports a **non-zero caller count**. Zero callers means the language server
@@ -316,7 +319,7 @@ secrets redacted before upload.
 ├── project-ebean.yml      another, needing nothing but a different JDK
 ├── project-kryo.yml       a small reactor with one module that recompiles another's sources
 ├── project-spring-kafka.yml  a Gradle build
-└── project-<slug>.yml     ... one file per project, added the same way
+└── project-<project>.yml  ... one file per project, added the same way
 ```
 
 GitHub reads workflows only from the top level of `.github/workflows`, so the convention carries the

@@ -29,8 +29,9 @@ on:
         description: >-
           Short name of the analysed project, which keys the run's concurrency group and names its log
           artifact. One organization can hold several projects (the spring organization does), and
-          keyed on the organization they would wait on each other's runs and share one artifact name.
-          Empty uses showcase-slug, for an organization that holds one project.
+          keyed on the organization their runs would wait on each other, GitHub keeping only one
+          pending run among them. Letters, digits and dashes only: the artifact name refuses / : and
+          quotes. Empty uses showcase-slug, for an organization that holds one project.
         required: false
         type: string
         default: ''
