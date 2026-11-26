@@ -6,8 +6,8 @@
 # JDK 25: build.gradle pins the compile toolchain and the test launcher to 25, and Gradle takes the
 # JDK it runs on as that toolchain, so one entry covers the build, the tests and the language server.
 #
-# Time and memory per commit are not measured yet. The tests start embedded brokers in-process, so
-# no Docker is needed.
+# A commit takes about 13 minutes, build, about 1,300 tests and review together; memory is not
+# measured yet. The tests start embedded brokers in-process, so no Docker is needed.
 name: Spring Kafka
 
 on:

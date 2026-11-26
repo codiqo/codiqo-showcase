@@ -126,7 +126,7 @@ project, `analyze-project.yml` holding everything they share — and change four
 
 ```yaml
       target-repo: apache/commons-lang     # the repository to analyse
-      showcase-slug: commons-lang          # the public page under codiqo.io/showcase/
+      showcase-slug: commons-lang          # the Codiqo organization's slug: its page under codiqo.io/showcase/
       jdks: |                              # every toolchain version the project asks for;
         26                                 # the one running Maven goes last, and must be 25+
 ```
@@ -300,6 +300,7 @@ Two consequences worth internalising before the first run:
 | Commit killed with exit 137, or the job ends with exit 143 and "The runner has received a shutdown signal" | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
 | Job cancelled after 340 minutes | Backlog larger than one run's budget | Expected during a catch-up. It resumes on the next run |
 | Everything appears pending again | The commit index is keyed by branch name | `analyze-project.yml` reads the branch from the checkout, so the analysed repository's name is used rather than this repository's |
+| Green Maven builds, coverage zero on unchanged modules | The project's `.mvn/extensions.xml` enables `maven-build-cache-extension`, which restores a module without running its tests | `maven-opts: -Dmaven.build.cache.enabled=false`. It must be a system property in `maven-opts`: the forked build does not inherit `-D` user properties, and the extension reads the system property as its fallback |
 
 Logs for every run are uploaded as an artifact named `codiqo-logs-<slug>`, kept for seven days, with
 secrets redacted before upload.
