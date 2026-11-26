@@ -25,6 +25,16 @@ on:
         description: 'Codiqo organization slug, used to link the public page from the run summary.'
         required: true
         type: string
+      project:
+        description: >-
+          Short name of the analysed project, which keys the run's concurrency group and names its log
+          artifact. One organization can hold several projects (the spring organization does), and
+          keyed on the organization their runs would wait on each other, GitHub keeping only one
+          pending run among them. Letters, digits and dashes only: the artifact name refuses / : and
+          quotes. Empty uses showcase-slug, for an organization that holds one project.
+        required: false
+        type: string
+        default: ''
       jdks:
         description: >-
           JDKs to install, one per line. setup-java writes a toolchain entry for every one of them
@@ -196,7 +206,7 @@ jobs:
     # One run per project at a time. cancel-in-progress: false lets a running analysis finish
     # rather than throwing away build hours to start again.
     concurrency:
-      group: analyze-${{ inputs.showcase-slug }}
+      group: analyze-${{ inputs.project || inputs.showcase-slug }}
       cancel-in-progress: false
     steps:
       - name: Check out ${{ inputs.target-repo }}
@@ -304,11 +314,10 @@ jobs:
           # which is the same rule the showcase pages follow.
           log-commit-authors: false
           # Gradle only. With org.gradle.caching on (spring-kafka sets it), an unchanged Test task is
-          # restored from the cache: no tests, no coverage, a green build. Jetty's Maven cache is the
-          # same trap.
+          # restored from the cache: no tests, no coverage, a green build.
           gradle-args: --no-build-cache
           # Names the artifact after the project, so a log download is unambiguous.
-          log-artifact-name: codiqo-logs-${{ inputs.showcase-slug }}
+          log-artifact-name: codiqo-logs-${{ inputs.project || inputs.showcase-slug }}
 
       # The action already writes the pending/analysed/failed table. All that is missing from it
       # is which project this was and where to read the result.

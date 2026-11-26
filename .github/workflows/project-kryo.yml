@@ -23,7 +23,7 @@ name: Kryo
 
 on:
   schedule:
-    # Daily, offset from guava's 03:17, ebean's 04:43 and jetty's six-hourly :29.
+    # Daily, offset from guava's 03:17 and ebean's 04:43.
     - cron: '11 2 * * *'
   workflow_dispatch:
     inputs:

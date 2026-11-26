@@ -14,11 +14,10 @@ can be traced back to the run that produced it.
 |---|---|---|
 | [google/guava](https://github.com/google/guava) | [`project-guava.yml`](.github/workflows/project-guava.yml) | [codiqo.io/showcase/guava](https://codiqo.io/showcase/guava) |
 | [ebean-orm/ebean](https://github.com/ebean-orm/ebean) | [`project-ebean.yml`](.github/workflows/project-ebean.yml) | [codiqo.io/showcase/ebean](https://codiqo.io/showcase/ebean) |
-| [jetty/jetty.project](https://github.com/jetty/jetty.project) | [`project-jetty.yml`](.github/workflows/project-jetty.yml) | [codiqo.io/showcase/jetty](https://codiqo.io/showcase/jetty) |
 | [EsotericSoftware/kryo](https://github.com/EsotericSoftware/kryo) | [`project-kryo.yml`](.github/workflows/project-kryo.yml) | [codiqo.io/showcase/kryo](https://codiqo.io/showcase/kryo) |
-| [spring-projects/spring-kafka](https://github.com/spring-projects/spring-kafka) | [`project-spring-kafka.yml`](.github/workflows/project-spring-kafka.yml) | [codiqo.io/showcase/spring-kafka](https://codiqo.io/showcase/spring-kafka) |
+| [spring-projects/spring-kafka](https://github.com/spring-projects/spring-kafka) | [`project-spring-kafka.yml`](.github/workflows/project-spring-kafka.yml) | [codiqo.io/showcase/spring](https://codiqo.io/showcase/spring) |
 
-**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: jetty](#project-notes-jetty) · [Project notes: kryo](#project-notes-kryo) · [Project notes: spring-kafka](#project-notes-spring-kafka) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
+**Contents** — [How a run works](#how-a-run-works) · [Run Codiqo on your own repository](#run-codiqo-on-your-own-repository) · [Add a project to this showcase](#add-a-project-to-this-showcase) · [Project notes: guava](#project-notes-guava) · [Project notes: ebean](#project-notes-ebean) · [Project notes: kryo](#project-notes-kryo) · [Project notes: spring-kafka](#project-notes-spring-kafka) · [Reusable workflow reference](#reusable-workflow-reference) · [What bounds a run](#what-bounds-a-run) · [Troubleshooting](#troubleshooting) · [Repository layout](#repository-layout) · [Contributor privacy](#contributor-privacy)
 
 ---
 
@@ -122,12 +121,13 @@ along with [rolling it out across an organization](https://github.com/codiqo/cod
 ## Add a project to this showcase
 
 Use this path only for measuring a repository you do not own, publicly. Copy
-[`project-guava.yml`](.github/workflows/project-guava.yml) to `project-<slug>.yml` — one file per
+[`project-guava.yml`](.github/workflows/project-guava.yml) to `project-<project>.yml` — one file per
 project, `analyze-project.yml` holding everything they share — and change four things:
 
 ```yaml
       target-repo: apache/commons-lang     # the repository to analyse
-      showcase-slug: commons-lang          # the public page under codiqo.io/showcase/
+      showcase-slug: commons-lang          # the Codiqo organization's slug: its page under codiqo.io/showcase/
+      project: commons-lang                # names this project's runs and logs; letters, digits and dashes
       jdks: |                              # every toolchain version the project asks for;
         26                                 # the one running Maven goes last, and must be 25+
 ```
@@ -139,8 +139,11 @@ project, `analyze-project.yml` holding everything they share — and change four
 
 Then:
 
-1. Create a Codiqo organization for the project, and add its key as a repository secret. One key per
-   project keeps a mistake in one workflow away from every other page.
+1. Create a Codiqo organization for the project, or reuse the one that holds its family (every Spring
+   project goes into `spring`), and add a key for it as a repository secret. The Codiqo project is the
+   one the build's own coordinates name; `project:` only names the workflow's runs and logs. A key
+   reaches its whole organization, so a key of its own keeps a mistake in one workflow away from
+   another organization's page, but not from a project that shares the organization.
 2. Dispatch the workflow from the Actions tab with `max-commits-per-run: 1` and
    `ignore-coverage: true`. That proves the wiring in one build rather than a hundred.
 3. Confirm the analysis reports a **non-zero caller count**. Zero callers means the language server
@@ -196,46 +199,6 @@ The contrasting case: a project that needs almost nothing.
   build still goes green with coverage at zero. Which is the argument for not adding `maven-args`
   here.
 
-## Project notes: jetty
-
-The large case, and the one that needs both the clock and the heap.
-
-- **Size sets every other choice.** Roughly 450 reactor modules and 37,000 tests on `jetty-12.1.x`.
-  A full build with `-T 1C` took about half an hour on a 14-core workstation, so a four-core runner
-  cannot fit a commit inside the shared hour. `per-commit-timeout` is `2h` and
-  `build-timeout-minutes` is `90`, leaving half an hour for the analysis. Without the second, the
-  forked build keeps the action's 45 minutes whatever the per-commit deadline says. Both are
-  estimates to replace with the figures the first runs log.
-- **Every six hours, not daily.** Jetty lands about 49 first-parent commits a month. At two hours
-  a commit, one 340-minute run a day falls behind for good, so the cron fires four times a day and
-  the concurrency group chains the runs instead of overlapping them.
-- **Jetty's own build cache is switched off.** `.mvn/` enables `maven-build-cache-extension`, which
-  would restore unchanged modules without running their tests: no coverage, no failure, and a green
-  build. The fork does not inherit `-D` user properties, so `maven.build.cache.enabled=false`
-  travels in `maven-opts` as a system property, which the extension reads as a fallback.
-- **Two modules at a time, not `1C`.** Jetty's surefire `argLine` asks for `-Xms4g -Xmx6g` per
-  test fork, and at `1C` up to four modules test at once on a hosted runner. The first run exhausted
-  the runner's memory during the build of its first commit and the runner shut down with exit 143,
-  so `maven-parallelism` is `'2'`. If memory still runs out, lower it to `1` before touching the heap.
-- **JDK 25.** Jetty 12.1 compiles for 17 and pins no toolchain; a full local build on Temurin 25
-  preceded this wiring.
-- **Duplication is real, not mirrored.** `jetty-ee10` and `jetty-ee11` are maintained side by side:
-  931 of the 1,081 `ee10` sources with an `ee11` counterpart are identical once the environment name
-  is swapped. Unlike guava's `android/` tree, both are shipped code, so neither is excluded and the
-  page reports the duplication as it stands. `jetty-ee8` is generated from `ee9` at build time and
-  holds only 30 tracked `.java` files.
-- **No duplication figure for now.** `ignore-cpd` is `true`. Copy-paste detection runs after the
-  index is built, when the analysis already holds about 6 GB, and on a 16 GB runner it does not fit:
-  it ran out of an 8 GB heap, and of a 10 GB one at a tile size of 125, and at 12 GB it exhausted the
-  runner's memory and swap within a minute, which lost the runner. The settings it will need are
-  kept: `cpd-ignore-identifiers` is `false`, because PMD's Java tokenizer crashes on this tree when it
-  replaces identifiers ([pmd/pmd#7133](https://github.com/pmd/pmd/issues/7133), fix pending in
-  [pmd/pmd#7138](https://github.com/pmd/pmd/pull/7138)), and `cpd-minimum-tile-size` is `150`.
-  Every other measure is unaffected, and the heap is back at the shared 8 GB.
-- **Environment-sensitive tests do not wedge a commit.** Some tests need Docker images, a remote
-  snapshot repository or native QUIC. The plugin runs the fork with `maven.test.failure.ignore`, so a
-  failing test costs its own coverage rather than the commit.
-
 ## Project notes: kryo
 
 The small case, and the one whose only trap is a module that builds the same sources twice.
@@ -280,7 +243,8 @@ policy, fixed on the action step, or an action default left alone.
 |---|---|---|
 | `target-repo` | *required* | Repository to analyse, as `owner/name`. |
 | `target-ref` | default branch | Ref to analyse. Must name a branch. |
-| `showcase-slug` | *required* | Public page slug, also the concurrency key. |
+| `showcase-slug` | *required* | The Codiqo organization's slug, whose public page the run summary links. |
+| `project` | `showcase-slug` | Short name of the project, which keys the concurrency group and names the log artifact. Set it when the organization holds several projects, as `spring` does. |
 | `build-tool` | `maven` | `maven` or `gradle`. Under `gradle` the last JDK runs the project's wrapper. |
 | `jdks` | `26` | JDKs to install, one per line. All become toolchain entries; the **last** runs Maven, the tests and the language server, so it must be **21 or newer** — `codiqo-maven-plugin` declares `requiredJavaVersion` 21. |
 | `commit-window` | `P3M` | How far back to index. See [what bounds a run](#what-bounds-a-run). |
@@ -317,7 +281,7 @@ What bounds a run is a clock, not a commit count.
 | Bound | Value | Effect |
 |---|---|---|
 | Job timeout | 340 min | The real limit. Six hours is the hosted-runner maximum, and stopping short of it means Actions cancels the job, which still uploads the logs and writes the summary. |
-| Per-commit deadline | 60 min | The build and test budgets are fitted under it. A commit that exceeds them is excluded as a build failure and not retried. Jetty raises it to 2 h. |
+| Per-commit deadline | 60 min | The build and test budgets are fitted under it. A commit that exceeds them is excluded as a build failure and not retried. |
 | Commit window | `P3M` | Bounds what enters the index. It does **not** filter the pending list afterwards. |
 | Commits per run | unbounded | Every pending commit, oldest first, until the job timeout. |
 
@@ -341,8 +305,9 @@ Two consequences worth internalising before the first run:
 | Commit killed with exit 137, or the job ends with exit 143 and "The runner has received a shutdown signal" | The kernel ran out of memory: the forked build, its concurrent test JVMs and the language server together exceeded the runner | Lower `maven-parallelism`, for example to `2` |
 | Job cancelled after 340 minutes | Backlog larger than one run's budget | Expected during a catch-up. It resumes on the next run |
 | Everything appears pending again | The commit index is keyed by branch name | `analyze-project.yml` reads the branch from the checkout, so the analysed repository's name is used rather than this repository's |
+| Green Maven builds, coverage zero on unchanged modules | The project's `.mvn/extensions.xml` enables `maven-build-cache-extension`, which restores a module without running its tests | `maven-opts: -Dmaven.build.cache.enabled=false`. It must be a system property in `maven-opts`: the forked build does not inherit `-D` user properties, and the extension reads the system property as its fallback |
 
-Logs for every run are uploaded as an artifact named `codiqo-logs-<slug>`, kept for seven days, with
+Logs for every run are uploaded as an artifact named `codiqo-logs-<project>`, kept for seven days, with
 secrets redacted before upload.
 
 ## Repository layout
@@ -352,10 +317,9 @@ secrets redacted before upload.
 ├── analyze-project.yml    shared policy, workflow_call only, never triggered directly
 ├── project-guava.yml      one project: schedule, repository, slug, JDKs, engine options
 ├── project-ebean.yml      another, needing nothing but a different JDK
-├── project-jetty.yml      a large reactor: longer deadline, six-hourly schedule, build cache off
 ├── project-kryo.yml       a small reactor with one module that recompiles another's sources
 ├── project-spring-kafka.yml  a Gradle build
-└── project-<slug>.yml     ... one file per project, added the same way
+└── project-<project>.yml  ... one file per project, added the same way
 ```
 
 GitHub reads workflows only from the top level of `.github/workflows`, so the convention carries the
